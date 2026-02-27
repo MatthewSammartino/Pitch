@@ -10,7 +10,7 @@ A live, shared pitch analytics dashboard for your friend group.
 pitch-tracker/
 ├── server/
 │   ├── index.js       ← Express API
-│   ├── games.json     ← Auto-created on first run (your database)
+│   ├── games.json     ← Auto-created on first run (your "database")
 │   └── package.json
 └── client/
     ├── src/
