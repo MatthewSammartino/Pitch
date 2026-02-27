@@ -1,7 +1,6 @@
-# Pitch
-First web app. Wohoo!
-
 # 🃏 Pitch Tracker
+
+First web app. Wohoo!
 
 A live, shared pitch analytics dashboard for your friend group.
 
