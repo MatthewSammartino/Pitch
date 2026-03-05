@@ -22,6 +22,16 @@ const METRIC_DEFINITIONS = {
   clutchRate:  "Your win rate specifically in games where $4 or more was on the line. Separates players who perform under pressure from those who only win the cheap hands. Requires a decent sample of $4+ games to be reliable.",
 };
 
+// ── Password helpers ─────────────────────────────────────────────────────────
+const getStoredPassword = () => {
+  try { return localStorage.getItem("pitchAdminPassword") || ""; } 
+  catch { return ""; }
+};
+const setStoredPassword = (pw) => {
+  try { localStorage.setItem("pitchAdminPassword", pw); } 
+  catch {}
+};
+
 // ── Stat calculations ─────────────────────────────────────────────────────────
 function calcStats(games) {
   return Object.fromEntries(PLAYERS.map(p => {
@@ -296,6 +306,7 @@ function AddGameForm({ onAdd, defaultDate }) {
   const [values, setValues] = useState(Object.fromEntries(PLAYERS.map(p => [p, ""])));
   const [date, setDate]     = useState(defaultDate || today);
   const [time, setTime]     = useState(nowTime);
+  const [password, setPassword] = useState(getStoredPassword);
   const [error, setError]   = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -312,6 +323,7 @@ function AddGameForm({ onAdd, defaultDate }) {
     if (filled.length < 2) return "At least 2 players must have a score.";
     const sum = filled.reduce((s, p) => s + Number(values[p]), 0);
     if (Math.abs(sum) > 0.01) return `Scores must sum to 0 (currently ${sum > 0 ? "+" : ""}${sum}).`;
+    if (!password) return "Password required.";
     return "";
   };
 
@@ -321,11 +333,21 @@ function AddGameForm({ onAdd, defaultDate }) {
     setError(""); setLoading(true);
     try {
       const res = await fetch(`${API}/games`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", 
+        headers: { 
+          "Content-Type": "application/json",
+          "x-admin-password": password,
+        },
         body: JSON.stringify({ ...values, date, time }),
       });
+      if (res.status === 401) {
+        setError("Invalid password");
+        setLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error("Server error");
       const newGame = await res.json();
+      setStoredPassword(password); // Save password on success
       onAdd(newGame);
       setValues(Object.fromEntries(PLAYERS.map(p => [p, ""])));
       setTime(new Date().toTimeString().slice(0, 5)); // Reset to current time
@@ -377,6 +399,21 @@ function AddGameForm({ onAdd, defaultDate }) {
             }}
           />
         </div>
+        <div>
+          <label style={{ color: "#8aab8a", fontSize: 12, fontFamily: "monospace", display: "block", marginBottom: 6 }}>PASSWORD 🔒</label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="••••••"
+            style={{
+              background: "rgba(255,255,255,.06)", border: "1px solid #2a4a2a",
+              borderRadius: 8, padding: "8px 12px", color: "#e8dfc8",
+              fontSize: 14, fontFamily: "monospace", outline: "none",
+              width: 100,
+            }}
+          />
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 16 }}>
@@ -420,7 +457,7 @@ function AddGameForm({ onAdd, defaultDate }) {
 }
 
 // ── Game Log Table ────────────────────────────────────────────────────────────
-function GameLog({ games, onDelete }) {
+function GameLog({ games, onDelete, deleteError }) {
   const [confirmId, setConfirmId] = useState(null);
 
   const cellStyle = (val) => ({
@@ -433,6 +470,7 @@ function GameLog({ games, onDelete }) {
     <div style={{ ...S.chartCard, maxHeight: 400, overflow: "auto" }}>
       <h3 style={S.chartTitle}>📋 Game Log</h3>
       <p style={S.chartSub}>Full history · {games.length} games total</p>
+      {deleteError && <p style={{ color: "#e05c5c", fontSize: 13, marginBottom: 10 }}>⚠ {deleteError}</p>}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead>
           <tr style={{ position: "sticky", top: 0, background: "#0d2b0d" }}>
@@ -544,6 +582,7 @@ export default function PitchDashboard() {
   const [tab,    setTab]    = useState("Overview");
   const [loading,setLoading] = useState(true);
   const [error,  setError]  = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -560,7 +599,21 @@ export default function PitchDashboard() {
 
   const handleAdd    = (g)  => setGames(prev => [...prev, g]);
   const handleDelete = async (id) => {
-    await fetch(`${API}/games/${id}`, { method: "DELETE" });
+    const password = getStoredPassword();
+    if (!password) {
+      setDeleteError("Enter password in the Add Game form first");
+      setTimeout(() => setDeleteError(""), 3000);
+      return;
+    }
+    const res = await fetch(`${API}/games/${id}`, { 
+      method: "DELETE",
+      headers: { "x-admin-password": password },
+    });
+    if (res.status === 401) {
+      setDeleteError("Invalid password");
+      setTimeout(() => setDeleteError(""), 3000);
+      return;
+    }
     setGames(prev => prev.filter(g => g.id !== id));
   };
 
@@ -888,7 +941,7 @@ export default function PitchDashboard() {
         )}
 
         {tab === "Log" && (
-          <GameLog games={games} onDelete={handleDelete} />
+          <GameLog games={games} onDelete={handleDelete} deleteError={deleteError} />
         )}
       </div>
 

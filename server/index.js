@@ -39,7 +39,18 @@ async function initDB() {
   }
 }
 
-// GET all games
+// Password check middleware
+const checkPassword = (req, res, next) => {
+  const password = req.headers["x-admin-password"];
+  const correctPassword = process.env.ADMIN_PASSWORD || "pitch123"; // Set ADMIN_PASSWORD in Railway!
+  
+  if (password !== correctPassword) {
+    return res.status(401).json({ error: "Invalid password" });
+  }
+  next();
+};
+
+// GET all games (no password needed - anyone can view)
 app.get("/api/games", async (req, res) => {
   try {
     const result = await pool.query(
@@ -52,8 +63,8 @@ app.get("/api/games", async (req, res) => {
   }
 });
 
-// POST new game
-app.post("/api/games", async (req, res) => {
+// POST new game (password required)
+app.post("/api/games", checkPassword, async (req, res) => {
   const { Matt, Seth, Mack, Arnav, Henry, date, time } = req.body;
   
   const gameDate = date || new Date().toISOString().slice(0, 10);
@@ -80,8 +91,8 @@ app.post("/api/games", async (req, res) => {
   }
 });
 
-// DELETE a game by id
-app.delete("/api/games/:id", async (req, res) => {
+// DELETE a game by id (password required)
+app.delete("/api/games/:id", checkPassword, async (req, res) => {
   const id = Number(req.params.id);
   try {
     const result = await pool.query(
