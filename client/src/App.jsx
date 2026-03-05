@@ -90,12 +90,219 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+// ── Night Tracker ────────────────────────────────────────────────────────────
+function NightTracker({ games, onAdd }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [selectedDate, setSelectedDate] = useState(today);
+
+  // All unique dates that have games, sorted descending
+  const gameDates = [...new Set(games.map(g => g.date).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+
+  const nightGames = games.filter(g => g.date === selectedDate);
+
+  // Per-player totals for the night
+  const nightTotals = Object.fromEntries(PLAYERS.map(p => {
+    const played = nightGames.filter(g => g[p] !== null);
+    const net = played.reduce((s, g) => s + g[p], 0);
+    return [p, { net, played: played.length }];
+  }));
+
+  // Settle-up: who owes who
+  // Build list of balances, then greedily match debtors to creditors
+  const balances = PLAYERS.map(p => ({ name: p, bal: nightTotals[p].net }))
+    .filter(x => x.bal !== 0);
+  const creditors = balances.filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal);
+  const debtors   = balances.filter(x => x.bal < 0).sort((a, b) => a.bal - b.bal);
+  const settlements = [];
+  const creds = creditors.map(c => ({ ...c }));
+  const debts = debtors.map(d => ({ ...d }));
+  let ci = 0, di = 0;
+  while (ci < creds.length && di < debts.length) {
+    const amount = Math.min(creds[ci].bal, Math.abs(debts[di].bal));
+    if (amount > 0.001) settlements.push({ from: debts[di].name, to: creds[ci].name, amount: +amount.toFixed(2) });
+    creds[ci].bal -= amount;
+    debts[di].bal += amount;
+    if (Math.abs(creds[ci].bal) < 0.001) ci++;
+    if (Math.abs(debts[di].bal) < 0.001) di++;
+  }
+
+  const cellStyle = (val) => ({
+    padding: "6px 12px", textAlign: "center", fontFamily: "monospace", fontSize: 13,
+    color: val === null ? "#3a5a3a" : val > 0 ? "#4fc3a1" : "#e05c5c",
+    background: val === null ? "transparent" : val > 0 ? "rgba(79,195,161,.08)" : "rgba(224,92,92,.08)",
+  });
+
+  return (
+    <div>
+      {/* Date selector */}
+      <div style={{ ...S.chartCard, border: "1px solid #2a5c2a" }}>
+        <h3 style={S.chartTitle}>🌙 Night Tracker</h3>
+        <p style={S.chartSub}>Select a date to review that session and see who owes who.</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: gameDates.length > 0 ? 16 : 0 }}>
+          <div>
+            <label style={{ color: "#8aab8a", fontSize: 12, fontFamily: "monospace", display: "block", marginBottom: 6 }}>DATE</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              style={{
+                background: "rgba(255,255,255,.06)", border: "1px solid #2a4a2a",
+                borderRadius: 8, padding: "8px 12px", color: "#e8dfc8",
+                fontSize: 14, fontFamily: "monospace", outline: "none", colorScheme: "dark",
+              }}
+            />
+          </div>
+          {/* Quick-jump to past nights */}
+          {gameDates.length > 0 && (
+            <div>
+              <label style={{ color: "#8aab8a", fontSize: 12, fontFamily: "monospace", display: "block", marginBottom: 6 }}>JUMP TO</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {gameDates.slice(0, 6).map(d => (
+                  <button key={d} onClick={() => setSelectedDate(d)} style={{
+                    padding: "6px 12px", borderRadius: 12, fontSize: 12, cursor: "pointer",
+                    fontFamily: "monospace", transition: "all .15s",
+                    border: selectedDate === d ? "1px solid #f0c040" : "1px solid #2a4a2a",
+                    background: selectedDate === d ? "rgba(240,192,64,.15)" : "rgba(255,255,255,.03)",
+                    color: selectedDate === d ? "#f0c040" : "#5a7a5a",
+                  }}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {nightGames.length === 0 ? (
+        <div style={{ ...S.chartCard, textAlign: "center", padding: "40px 20px" }}>
+          <p style={{ color: "#5a7a5a", fontSize: 14, fontFamily: "monospace" }}>No games logged for {selectedDate}.</p>
+          <p style={{ color: "#3a5a3a", fontSize: 12, marginTop: 8 }}>Use the Overview tab to log games — make sure to set the date above.</p>
+        </div>
+      ) : (<>
+
+        {/* Night totals per player */}
+        <div style={{ ...S.chartCard }}>
+          <h3 style={S.chartTitle}>Results for {selectedDate}</h3>
+          <p style={S.chartSub}>{nightGames.length} games played this session</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
+            {PLAYERS.map(p => {
+              const { net, played } = nightTotals[p];
+              if (played === 0) return null;
+              const isPos = net >= 0;
+              return (
+                <div key={p} style={{
+                  background: "rgba(255,255,255,.03)",
+                  border: `1px solid ${COLORS[p]}44`, borderTop: `3px solid ${COLORS[p]}`,
+                  borderRadius: 10, padding: "14px 18px", minWidth: 110, textAlign: "center",
+                }}>
+                  <div style={{ color: COLORS[p], fontSize: 20, marginBottom: 4 }}>{SUITS[p]}</div>
+                  <div style={{ color: "#f0e8d0", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p}</div>
+                  <div style={{ color: isPos ? "#4fc3a1" : "#e05c5c", fontSize: 22, fontWeight: 700, fontFamily: "monospace" }}>
+                    {isPos ? "+" : ""}${net}
+                  </div>
+                  <div style={{ color: "#5a7a5a", fontSize: 11, marginTop: 4 }}>{played} games</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Settle-up */}
+        <div style={{ ...S.chartCard, border: "1px solid #2a4a2a" }}>
+          <h3 style={S.chartTitle}>💸 Settle Up</h3>
+          <p style={S.chartSub}>Minimum transactions to zero everyone out</p>
+          {settlements.length === 0 ? (
+            <p style={{ color: "#4fc3a1", fontFamily: "monospace", fontSize: 14 }}>✓ Everyone is square!</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {settlements.map((s, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  background: "rgba(255,255,255,.03)", border: "1px solid #1a3a1a",
+                  borderRadius: 10, padding: "14px 18px",
+                }}>
+                  <span style={{ color: COLORS[s.from], fontSize: 18 }}>{SUITS[s.from]}</span>
+                  <span style={{ color: "#e05c5c", fontWeight: 700, fontSize: 15 }}>{s.from}</span>
+                  <span style={{ color: "#5a7a5a", fontSize: 13, margin: "0 4px" }}>pays</span>
+                  <span style={{ color: "#4fc3a1", fontSize: 20, fontWeight: 700, fontFamily: "monospace" }}>${s.amount}</span>
+                  <span style={{ color: "#5a7a5a", fontSize: 13, margin: "0 4px" }}>to</span>
+                  <span style={{ color: COLORS[s.to], fontSize: 18 }}>{SUITS[s.to]}</span>
+                  <span style={{ color: "#4fc3a1", fontWeight: 700, fontSize: 15 }}>{s.to}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Game-by-game table for the night */}
+        <div style={{ ...S.chartCard, maxHeight: 360, overflow: "auto" }}>
+          <h3 style={S.chartTitle}>Game by Game</h3>
+          <p style={S.chartSub}>All {nightGames.length} games from this session</p>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ position: "sticky", top: 0, background: "#0d2b0d" }}>
+                <th style={{ padding: "8px 12px", color: "#8aab8a", textAlign: "center" }}>#</th>
+                <th style={{ padding: "8px 12px", color: "#8aab8a", textAlign: "center" }}>Time</th>
+                {PLAYERS.map(p => (
+                  <th key={p} style={{ padding: "8px 12px", color: COLORS[p], textAlign: "center", fontWeight: 600 }}>
+                    {SUITS[p]} {p}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {nightGames.map((g, i) => (
+                <tr key={g.id} style={{ borderTop: "1px solid #1a3a1a" }}>
+                  <td style={{ padding: "6px 12px", color: "#5a7a5a", textAlign: "center", fontFamily: "monospace" }}>{i + 1}</td>
+                  <td style={{ padding: "6px 12px", color: "#5a7a5a", textAlign: "center", fontFamily: "monospace", fontSize: 12 }}>{g.time || "—"}</td>
+                  {PLAYERS.map(p => (
+                    <td key={p} style={cellStyle(g[p])}>
+                      {g[p] === null ? "—" : g[p] > 0 ? `+$${g[p]}` : `-$${Math.abs(g[p])}`}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+              {/* Totals row */}
+              <tr style={{ borderTop: "2px solid #2a4a2a", background: "rgba(255,255,255,.03)" }}>
+                <td style={{ padding: "8px 12px", color: "#8aab8a", textAlign: "center", fontFamily: "monospace", fontWeight: 700 }}>Σ</td>
+                <td style={{ padding: "6px 12px" }}></td>
+                {PLAYERS.map(p => {
+                  const v = nightTotals[p].net;
+                  return (
+                    <td key={p} style={{ ...cellStyle(v === 0 ? null : v), fontWeight: 700 }}>
+                      {nightTotals[p].played === 0 ? "—" : v > 0 ? `+$${v}` : v < 0 ? `-$${Math.abs(v)}` : "$0"}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </>)}
+
+      {/* Log new game for this date inline */}
+      <AddGameForm onAdd={onAdd} defaultDate={selectedDate} />
+    </div>
+  );
+}
+
 // ── Add Game Form ─────────────────────────────────────────────────────────────
-function AddGameForm({ onAdd }) {
+function AddGameForm({ onAdd, defaultDate }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const nowTime = new Date().toTimeString().slice(0, 5);
   const [values, setValues] = useState(Object.fromEntries(PLAYERS.map(p => [p, ""])));
+  const [date, setDate]     = useState(defaultDate || today);
+  const [time, setTime]     = useState(nowTime);
   const [error, setError]   = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Sync date when defaultDate prop changes (e.g., user picks a new date in NightTracker)
+  useEffect(() => {
+    if (defaultDate) setDate(defaultDate);
+  }, [defaultDate]);
 
   const set = (p, v) => setValues(prev => ({ ...prev, [p]: v }));
 
@@ -114,12 +321,13 @@ function AddGameForm({ onAdd }) {
     try {
       const res = await fetch(`${API}/games`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, date, time }),
       });
       if (!res.ok) throw new Error("Server error");
       const newGame = await res.json();
       onAdd(newGame);
       setValues(Object.fromEntries(PLAYERS.map(p => [p, ""])));
+      setTime(new Date().toTimeString().slice(0, 5)); // Reset to current time
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2500);
     } catch (e) {
@@ -138,6 +346,37 @@ function AddGameForm({ onAdd }) {
     <div style={{ ...S.chartCard, border: "1px solid #2a5c2a" }}>
       <h3 style={S.chartTitle}>🃏 Log New Game</h3>
       <p style={S.chartSub}>Enter each player's result. Scores must sum to zero. Leave blank if a player didn't play.</p>
+
+      <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+        <div>
+          <label style={{ color: "#8aab8a", fontSize: 12, fontFamily: "monospace", display: "block", marginBottom: 6 }}>DATE</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            style={{
+              background: "rgba(255,255,255,.06)", border: "1px solid #2a4a2a",
+              borderRadius: 8, padding: "8px 12px", color: "#e8dfc8",
+              fontSize: 14, fontFamily: "monospace", outline: "none",
+              colorScheme: "dark",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ color: "#8aab8a", fontSize: 12, fontFamily: "monospace", display: "block", marginBottom: 6 }}>TIME</label>
+          <input
+            type="time"
+            value={time}
+            onChange={e => setTime(e.target.value)}
+            style={{
+              background: "rgba(255,255,255,.06)", border: "1px solid #2a4a2a",
+              borderRadius: 8, padding: "8px 12px", color: "#e8dfc8",
+              fontSize: 14, fontFamily: "monospace", outline: "none",
+              colorScheme: "dark",
+            }}
+          />
+        </div>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 16 }}>
         {PLAYERS.map(p => (
@@ -197,6 +436,8 @@ function GameLog({ games, onDelete }) {
         <thead>
           <tr style={{ position: "sticky", top: 0, background: "#0d2b0d" }}>
             <th style={{ padding: "8px 12px", color: "#8aab8a", textAlign: "center", fontWeight: 600 }}>#</th>
+            <th style={{ padding: "8px 12px", color: "#8aab8a", textAlign: "center", fontWeight: 600 }}>Date</th>
+            <th style={{ padding: "8px 12px", color: "#8aab8a", textAlign: "center", fontWeight: 600 }}>Time</th>
             {PLAYERS.map(p => (
               <th key={p} style={{ padding: "8px 12px", color: COLORS[p], textAlign: "center", fontWeight: 600 }}>
                 {SUITS[p]} {p}
@@ -209,6 +450,8 @@ function GameLog({ games, onDelete }) {
           {[...games].reverse().map((g) => (
             <tr key={g.id} style={{ borderTop: "1px solid #1a3a1a" }}>
               <td style={{ padding: "6px 12px", color: "#5a7a5a", textAlign: "center", fontFamily: "monospace" }}>{g.id}</td>
+              <td style={{ padding: "6px 12px", color: "#5a7a5a", textAlign: "center", fontFamily: "monospace", fontSize: 12 }}>{g.date || "—"}</td>
+              <td style={{ padding: "6px 12px", color: "#5a7a5a", textAlign: "center", fontFamily: "monospace", fontSize: 12 }}>{g.time || "—"}</td>
               {PLAYERS.map(p => (
                 <td key={p} style={cellStyle(g[p])}>
                   {g[p] === null ? "—" : g[p] > 0 ? `+$${g[p]}` : `-$${Math.abs(g[p])}`}
@@ -293,7 +536,7 @@ function tabStyle(active) {
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
-const TABS = ["Overview", "Financials", "Sets", "Radar", "Trend", "Log"];
+const TABS = ["Overview", "Financials", "Sets", "Radar", "Trend", "Night", "Log"];
 
 export default function PitchDashboard() {
   const [games,  setGames]  = useState([]);
@@ -637,6 +880,10 @@ export default function PitchDashboard() {
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
+        )}
+
+        {tab === "Night" && (
+          <NightTracker games={games} onAdd={handleAdd} />
         )}
 
         {tab === "Log" && (

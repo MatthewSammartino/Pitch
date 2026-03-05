@@ -89,10 +89,13 @@ app.get("/api/games", (req, res) => {
 
 // POST new game
 app.post("/api/games", (req, res) => {
-  const { Matt, Seth, Mack, Arnav, Henry } = req.body;
+  const { Matt, Seth, Mack, Arnav, Henry, date, time } = req.body;
   const db = readDB();
+  const now = new Date();
   const newGame = {
     id: db.games.length > 0 ? Math.max(...db.games.map((g) => g.id)) + 1 : 1,
+    date: date || now.toISOString().slice(0, 10),
+    time: time || now.toTimeString().slice(0, 5),
     Matt: Matt !== "" ? Number(Matt) : null,
     Seth: Seth !== "" ? Number(Seth) : null,
     Mack: Mack !== "" ? Number(Mack) : null,
