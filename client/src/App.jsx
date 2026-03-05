@@ -5,7 +5,8 @@ import {
   PolarRadiusAxis, ScatterChart, Scatter, Cell, PieChart, Pie, LineChart, Line
 } from "recharts";
 
-const API = "http://localhost:3001/api";
+// Use relative URL in production, localhost in development
+const API = import.meta.env.PROD ? "/api" : "http://localhost:3001/api";
 const PLAYERS = ["Matt", "Seth", "Mack", "Arnav", "Henry"];
 const COLORS = { Matt: "#f0c040", Seth: "#4fc3a1", Mack: "#e05c5c", Arnav: "#7b9ef0", Henry: "#d17be8" };
 const SUITS  = { Matt: "♠", Seth: "♣", Mack: "♦", Arnav: "♥", Henry: "★" };
