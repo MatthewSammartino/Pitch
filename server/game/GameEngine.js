@@ -142,8 +142,9 @@ function scoreRound(trickHistory, trumpSuit, seats) {
   const gameVals = [0, 0];
   for (let t = 0; t <= 1; t++) {
     for (const card of captured[t]) {
-      const { rank } = parseCard(card);
-      gameVals[t] += CARD_POINT_VALUES[rank] || 0;
+      const { rank, suit } = parseCard(card);
+      const isOffJack = rank === "J" && suit === offSuit;
+      gameVals[t] += isOffJack ? 0.5 : (CARD_POINT_VALUES[rank] || 0);
     }
   }
   breakdown.gameValues = gameVals;
