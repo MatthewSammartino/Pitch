@@ -53,11 +53,22 @@ const io = new SocketServer(server, {
   cors: { origin: true, credentials: true },
 });
 
-// Share express-session + passport with socket.io
+// Share express-session with sockets, then look up the user directly from DB.
+// This avoids passport needing a real response object (which sockets don't have).
 const wrap = (m) => (socket, next) => m(socket.request, socket.request.res || {}, next);
 io.use(wrap(sessionMiddleware));
-io.use(wrap(passport.initialize()));
-io.use(wrap(passport.session()));
+io.use(async (socket, next) => {
+  try {
+    const userId = socket.request.session?.passport?.user;
+    if (!userId) return next(new Error("unauthorized"));
+    const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
+    if (!rows.length) return next(new Error("unauthorized"));
+    socket.request.user = rows[0];
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 registerSockets(io);
 

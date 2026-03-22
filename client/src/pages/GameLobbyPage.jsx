@@ -128,6 +128,7 @@ export default function GameLobbyPage() {
 
   const [lobby, setLobby] = useState(null);
   const [error, setError] = useState("");
+  const [connStatus, setConnStatus] = useState("connecting"); // connecting | connected | failed
   const [copied, setCopied] = useState(false);
   const socketRef = useRef(null);
 
@@ -137,12 +138,27 @@ export default function GameLobbyPage() {
     const socket = getSocket("/lobby");
     socketRef.current = socket;
 
-    socket.emit("lobby:join", { sessionId });
+    function onConnect() {
+      setConnStatus("connected");
+      socket.emit("lobby:join", { sessionId });
+    }
 
+    function onConnectError(err) {
+      setConnStatus("failed");
+      setError(`Connection failed: ${err.message}. Try refreshing the page.`);
+    }
+
+    // If already connected, join immediately
+    if (socket.connected) {
+      onConnect();
+    } else {
+      socket.on("connect", onConnect);
+    }
+
+    socket.on("connect_error", onConnectError);
     socket.on("lobby:state", setLobby);
 
     socket.on("lobby:started", ({ sessionId: sid }) => {
-      // Phase 4 will navigate to the game room
       navigate(`/game/${sid}`);
     });
 
@@ -152,6 +168,8 @@ export default function GameLobbyPage() {
     });
 
     return () => {
+      socket.off("connect", onConnect);
+      socket.off("connect_error", onConnectError);
       socket.off("lobby:state", setLobby);
       socket.off("lobby:started");
       socket.off("lobby:error");
@@ -191,7 +209,10 @@ export default function GameLobbyPage() {
           {lobby?.variant}-Player Lobby
         </h1>
         <p style={S.sub}>
-          {lobby ? `${lobby.filledCount} / ${lobby.variant} seats filled` : "Connecting…"}
+          {lobby
+            ? `${lobby.filledCount} / ${lobby.variant} seats filled`
+            : connStatus === "failed" ? "Connection failed — try refreshing."
+            : "Connecting to lobby…"}
         </p>
 
         {/* Invite link */}
