@@ -234,6 +234,7 @@ export default function GameRoomPage() {
             }}>
               <TrickArea
                 currentTrick={game.currentTrick}
+                completedTrick={game.completedTrick}
                 seats={game.seats}
                 trumpSuit={game.trumpSuit}
                 mySeatIndex={mySeat?.seatIndex ?? 0}

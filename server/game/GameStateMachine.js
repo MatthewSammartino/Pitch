@@ -43,6 +43,9 @@ class GameStateMachine {
     this.teamScores  = [0, 0];
     this.roundNumber = 1;
     this.lastRoundSummary = null;
+
+    // Holds the last completed trick for display until the next trick starts
+    this.completedTrick = null;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -79,6 +82,7 @@ class GameStateMachine {
       currentTrick:   this.currentTrick,
       nextLeaderSeat: this.nextLeaderSeat,
       tricksPlayed:   this.trickHistory.length,
+      completedTrick: this.completedTrick,
       // Scores
       teamScores:          this.teamScores,
       roundNumber:         this.roundNumber,
@@ -175,13 +179,17 @@ class GameStateMachine {
     const valid = getValidCards(hand, this.currentTrick, this.trumpSuit);
     if (!valid.includes(cardId)) return { error: "Must follow the led suit" };
 
+    // Starting a new trick — clear the completed trick display
+    if (this.currentTrick.length === 0) this.completedTrick = null;
+
     // Remove from hand, add to trick
     this.hands[userId] = hand.filter((c) => c !== cardId);
     this.currentTrick.push({ seatIndex: seat.seatIndex, card: cardId });
 
     if (this.currentTrick.length === this.variant) {
-      // Trick complete
+      // Trick complete — save for display before clearing
       const winnerSeat = determineTrickWinner(this.currentTrick, this.trumpSuit);
+      this.completedTrick = { plays: [...this.currentTrick], winnerSeat };
       this.trickHistory.push({ plays: [...this.currentTrick], winnerSeat });
       this.currentTrick   = [];
       this.nextLeaderSeat = winnerSeat;
@@ -226,6 +234,7 @@ class GameStateMachine {
       teamScores:     [...this.teamScores],
       breakdown,
       trumpSuit:      this.trumpSuit,
+      tricks:         this.trickHistory.map((t) => ({ ...t })),
     };
     this.lastRoundSummary = summary;
 

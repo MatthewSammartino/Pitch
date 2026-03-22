@@ -31,12 +31,16 @@ function TrickCard({ cardId, label }) {
   );
 }
 
-export default function TrickArea({ currentTrick, seats, trumpSuit, mySeatIndex }) {
+export default function TrickArea({ currentTrick, completedTrick, seats, trumpSuit, mySeatIndex }) {
   const seatMap = {};
   for (const s of (seats || [])) seatMap[s.seatIndex] = s;
 
+  // Show completedTrick when currentTrick is empty (gives players time to see the last play)
+  const displayTrick = (currentTrick && currentTrick.length > 0) ? currentTrick : completedTrick?.plays;
+  const isCompleted  = (!currentTrick || currentTrick.length === 0) && completedTrick != null;
+
   const plays = {};
-  for (const play of (currentTrick || [])) plays[play.seatIndex] = play.card;
+  for (const play of (displayTrick || [])) plays[play.seatIndex] = play.card;
 
   const v       = seats?.length || 4;
   const myIdx   = mySeatIndex ?? 0;
@@ -45,6 +49,9 @@ export default function TrickArea({ currentTrick, seats, trumpSuit, mySeatIndex 
   const eastIdx  = (myIdx + 3) % v;
 
   const trumpColor = trumpSuit ? SUIT_COLORS[trumpSuit] : "#3a5a3a";
+  const winnerName = isCompleted && completedTrick
+    ? (seatMap[completedTrick.winnerSeat]?.displayName || "?")
+    : null;
 
   return (
     <div style={{
@@ -57,6 +64,8 @@ export default function TrickArea({ currentTrick, seats, trumpSuit, mySeatIndex 
       alignItems: "center",
       padding: "16px 12px",
       minHeight: 200,
+      opacity: isCompleted ? 0.7 : 1,
+      transition: "opacity .3s",
     }}>
       <div style={{ gridArea: "north" }}>
         <TrickCard cardId={plays[northIdx]} label={seatMap[northIdx]?.displayName} />
@@ -65,6 +74,11 @@ export default function TrickArea({ currentTrick, seats, trumpSuit, mySeatIndex 
         <TrickCard cardId={plays[westIdx]} label={seatMap[westIdx]?.displayName} />
       </div>
       <div style={{ gridArea: "center", textAlign: "center" }}>
+        {winnerName && (
+          <div style={{ fontSize: 11, color: "#f0c040", marginBottom: 6, whiteSpace: "nowrap" }}>
+            {winnerName} wins
+          </div>
+        )}
         {trumpSuit && (
           <>
             <div style={{ fontSize: 26, color: trumpColor, lineHeight: 1 }}>

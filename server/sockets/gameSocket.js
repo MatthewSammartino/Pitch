@@ -119,7 +119,12 @@ module.exports = function gameSocket(nsp) {
         if (result.error) return;
         nsp.to(sessionId).emit("game:state", g.getPublicState());
         if (result.roundSummary) {
-          handleRoundEnd(sessionId, g, result);
+          setTimeout(() => handleRoundEnd(sessionId, g, result), 1500);
+        } else if (result.trickComplete) {
+          setTimeout(() => {
+            broadcastTurnNotice(sessionId, g);
+            autoBotPlay(sessionId);
+          }, 1500);
         } else {
           broadcastTurnNotice(sessionId, g);
           autoBotPlay(sessionId);
@@ -215,7 +220,15 @@ module.exports = function gameSocket(nsp) {
       nsp.to(sessionId).emit("game:state", game.getPublicState());
 
       if (result.roundSummary) {
-        handleRoundEnd(sessionId, game, result);
+        // Delay before round-over so players can see the last card played
+        setTimeout(() => handleRoundEnd(sessionId, game, result), 1500);
+      } else if (result.trickComplete) {
+        sendPrivate(sessionId, user.id, "game:your_hand", game.getPrivateState(user.id));
+        // Delay so players can see the completed trick before it clears
+        setTimeout(() => {
+          broadcastTurnNotice(sessionId, game);
+          autoBotPlay(sessionId);
+        }, 1500);
       } else {
         sendPrivate(sessionId, user.id, "game:your_hand", game.getPrivateState(user.id));
         broadcastTurnNotice(sessionId, game);

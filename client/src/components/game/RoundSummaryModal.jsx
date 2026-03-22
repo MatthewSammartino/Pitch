@@ -1,108 +1,198 @@
-const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
-const POINT_LABELS = {
-  high:     "High",
-  low:      "Low",
-  jack:     "Jack",
-  off_jack: "Off-Jack",
-  game:     "Game",
-};
+import { useState } from "react";
 
-function CardLabel({ card }) {
+const SUIT_SYMBOLS   = { h: "♥", d: "♦", c: "♣", s: "♠" };
+const SUIT_COLORS    = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
+const CARD_PTS       = { A: 4, K: 3, Q: 2, J: 1, "10": 10 };
+const POINT_LABELS   = { high: "High", low: "Low", jack: "Jack", offJack: "Off-Jack", game: "Game" };
+
+function parseCard(cardId) {
+  if (!cardId) return { rank: "", suit: "s" };
+  if (cardId.length === 3) return { rank: cardId.slice(0, 2), suit: cardId[2] };
+  return { rank: cardId[0], suit: cardId[1] };
+}
+
+function CardChip({ card }) {
   if (!card) return null;
-  const rank = card.length === 3 ? card.slice(0, 2) : card[0];
-  const suit = card.length === 3 ? card[2] : card[1];
-  const isRed = suit === "h" || suit === "d";
+  const { rank, suit } = parseCard(card);
   return (
-    <span style={{ color: isRed ? "#e05c5c" : "#f0e8d0", fontWeight: 600 }}>
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 1,
+      color: SUIT_COLORS[suit], fontWeight: 700, fontSize: 13,
+    }}>
       {rank}{SUIT_SYMBOLS[suit]}
     </span>
   );
 }
 
+function trickCardPts(plays) {
+  return plays.reduce((sum, { card }) => sum + (CARD_PTS[parseCard(card).rank] || 0), 0);
+}
+
 export default function RoundSummaryModal({ summary, seats, onClose }) {
+  const [showTricks, setShowTricks] = useState(false);
   if (!summary) return null;
 
   const seatName = {};
-  for (const s of (seats || [])) seatName[s.seatIndex] = s.displayName;
+  const seatTeam = {};
+  for (const s of (seats || [])) {
+    seatName[s.seatIndex] = s.displayName;
+    seatTeam[s.seatIndex] = s.team;
+  }
 
-  const { breakdown, bidderSeat, bid, bidMade, teamPointsEarned, teamScores } = summary;
+  const { breakdown, bidderSeat, bid, bidMade, teamPointsEarned, teamScores, trumpSuit, tricks } = summary;
   const bidder = seatName[bidderSeat] || "?";
+  const tc = (t) => t === 0 ? "#4fc3a1" : "#f0c040";
+  const tl = (t) => t === 0 ? "Team A" : "Team B";
 
-  const pointRows = [
-    breakdown?.high     && { type: "high",     team: breakdown.high.team,     card: breakdown.high.card },
-    breakdown?.low      && { type: "low",       team: breakdown.low.team,      card: breakdown.low.card },
-    breakdown?.jack     && { type: "jack",      team: breakdown.jack.team,     card: breakdown.jack.card },
-    breakdown?.offJack  && { type: "off_jack",  team: breakdown.offJack.team,  card: breakdown.offJack.card },
-    breakdown?.game     && { type: "game",      team: breakdown.game.team,     card: null },
+  const scoringRows = [
+    breakdown?.high    && { key: "high",    label: "High",     card: breakdown.high.card,    team: breakdown.high.team },
+    breakdown?.low     && { key: "low",     label: "Low",      card: breakdown.low.card,     team: breakdown.low.team },
+    breakdown?.jack    && { key: "jack",    label: "Jack",     card: breakdown.jack.card,    team: breakdown.jack.team },
+    breakdown?.offJack && { key: "offJack", label: "Off-Jack", card: breakdown.offJack.card, team: breakdown.offJack.team },
+    breakdown?.game    && { key: "game",    label: "Game",     card: null,                   team: breakdown.game.team },
   ].filter(Boolean);
-
-  const teamColor = (t) => (t === 0 ? "#4fc3a1" : "#f0c040");
 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 300,
-      background: "rgba(0,0,0,.7)",
+      background: "rgba(0,0,0,.75)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 20,
+      padding: 16, overflowY: "auto",
     }}>
       <div style={{
         background: "#0d2b0d", border: "1px solid #2a5c2a",
-        borderRadius: 14, padding: "28px 32px",
-        maxWidth: 400, width: "100%",
+        borderRadius: 14, padding: "24px 28px",
+        maxWidth: 520, width: "100%",
         fontFamily: "Georgia,serif", color: "#e8dfc8",
+        maxHeight: "90vh", overflowY: "auto",
       }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", color: "#f0e8d0", margin: "0 0 4px", fontSize: 20 }}>
-          Round {summary.roundNumber} Over
+
+        {/* Header */}
+        <h2 style={{ fontFamily: "'Playfair Display',serif", color: "#f0e8d0", margin: "0 0 2px", fontSize: 20 }}>
+          Round {summary.roundNumber} Complete
         </h2>
         <p style={{ color: "#5a7a5a", fontSize: 13, margin: "0 0 20px" }}>
-          {bidder} bid {bid} — <span style={{ color: bidMade ? "#4fc3a1" : "#e05c5c" }}>
-            {bidMade ? "bid made" : "bid set"}
+          Trump: <span style={{ color: SUIT_COLORS[trumpSuit] }}>{SUIT_SYMBOLS[trumpSuit]}</span>
+          {" · "}{bidder} bid {bid} —{" "}
+          <span style={{ color: bidMade ? "#4fc3a1" : "#e05c5c" }}>
+            {bidMade ? "bid made ✓" : "bid set ✗"}
           </span>
         </p>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20 }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #1e4a1e" }}>
-              <th style={{ textAlign: "left", color: "#5a7a5a", fontSize: 12, paddingBottom: 6 }}>Point</th>
-              <th style={{ textAlign: "center", color: "#5a7a5a", fontSize: 12 }}>Card</th>
-              <th style={{ textAlign: "right", color: "#5a7a5a", fontSize: 12 }}>Winner</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pointRows.map(({ type, team, card }) => (
-              <tr key={type} style={{ borderBottom: "1px solid #0d2b0d" }}>
-                <td style={{ padding: "7px 0", fontSize: 14 }}>{POINT_LABELS[type]}</td>
-                <td style={{ textAlign: "center", fontSize: 14 }}>
-                  {card ? <CardLabel card={card} /> : "—"}
-                </td>
-                <td style={{ textAlign: "right", fontSize: 14, color: teamColor(team) }}>
-                  Team {team === 0 ? "A" : "B"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Team scores side-by-side */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "1fr 1fr",
+          gap: 10, marginBottom: 20,
+        }}>
+          {[0, 1].map((t) => (
+            <div key={t} style={{
+              background: "rgba(255,255,255,.03)",
+              border: `1px solid ${tc(t)}33`,
+              borderRadius: 10, padding: "12px 14px",
+              textAlign: "center",
+            }}>
+              <div style={{ color: tc(t), fontSize: 12, letterSpacing: 1, marginBottom: 4 }}>
+                {tl(t)}
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "#f0e8d0", lineHeight: 1 }}>
+                {teamScores[t]}
+              </div>
+              <div style={{ fontSize: 12, color: "#5a7a5a", marginTop: 4 }}>
+                {teamPointsEarned[t] >= 0 ? "+" : ""}{teamPointsEarned[t]} this round
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, fontSize: 14 }}>
-          <div>
-            <span style={{ color: "#4fc3a1" }}>Team A:</span>
-            <span style={{ color: "#f0e8d0", fontWeight: 700, marginLeft: 8, fontSize: 18 }}>
-              {teamScores[0]}
-            </span>
-            <span style={{ color: "#5a7a5a", fontSize: 12, marginLeft: 4 }}>
-              ({teamPointsEarned[0] >= 0 ? "+" : ""}{teamPointsEarned[0]})
-            </span>
+        {/* Scoring points breakdown */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#3a5a3a", letterSpacing: 1, marginBottom: 8 }}>
+            SCORING POINTS
           </div>
-          <div>
-            <span style={{ color: "#f0c040" }}>Team B:</span>
-            <span style={{ color: "#f0e8d0", fontWeight: 700, marginLeft: 8, fontSize: 18 }}>
-              {teamScores[1]}
-            </span>
-            <span style={{ color: "#5a7a5a", fontSize: 12, marginLeft: 4 }}>
-              ({teamPointsEarned[1] >= 0 ? "+" : ""}{teamPointsEarned[1]})
-            </span>
+          <div style={{
+            display: "grid", gridTemplateColumns: "80px 1fr 70px 70px",
+            gap: "2px 0", fontSize: 13,
+          }}>
+            {/* Header */}
+            <div style={{ color: "#3a5a3a", fontSize: 11, paddingBottom: 4 }}>Point</div>
+            <div style={{ color: "#3a5a3a", fontSize: 11, paddingBottom: 4 }}>Card</div>
+            <div style={{ color: tc(0), fontSize: 11, textAlign: "center", paddingBottom: 4 }}>Team A</div>
+            <div style={{ color: tc(1), fontSize: 11, textAlign: "center", paddingBottom: 4 }}>Team B</div>
+            {/* Divider */}
+            <div style={{ gridColumn: "1/-1", borderTop: "1px solid #1e4a1e", marginBottom: 4 }} />
+
+            {scoringRows.map(({ key, label, card, team }) => (
+              <>
+                <div key={key + "l"} style={{ color: "#e8dfc8", padding: "4px 0" }}>{label}</div>
+                <div key={key + "c"} style={{ padding: "4px 0" }}>
+                  {card ? <CardChip card={card} /> : (
+                    <span style={{ color: "#5a7a5a", fontSize: 12 }}>
+                      {key === "game" ? `${breakdown.gameValues[0]} vs ${breakdown.gameValues[1]} card pts` : "—"}
+                    </span>
+                  )}
+                </div>
+                <div key={key + "a"} style={{ textAlign: "center", padding: "4px 0", fontSize: 16 }}>
+                  {team === 0 ? <span style={{ color: tc(0) }}>●</span> : ""}
+                </div>
+                <div key={key + "b"} style={{ textAlign: "center", padding: "4px 0", fontSize: 16 }}>
+                  {team === 1 ? <span style={{ color: tc(1) }}>●</span> : ""}
+                </div>
+              </>
+            ))}
           </div>
         </div>
+
+        {/* Tricks toggle */}
+        {tricks && tricks.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <button
+              onClick={() => setShowTricks((v) => !v)}
+              style={{
+                background: "none", border: "none", color: "#5a7a5a",
+                cursor: "pointer", fontSize: 12, fontFamily: "Georgia,serif",
+                letterSpacing: 1, padding: 0, marginBottom: showTricks ? 10 : 0,
+              }}
+            >
+              {showTricks ? "▾" : "▸"} TRICKS ({tricks.length})
+            </button>
+
+            {showTricks && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {tricks.map((trick, i) => {
+                  const pts = trickCardPts(trick.plays);
+                  const wTeam = seatTeam[trick.winnerSeat] ?? 0;
+                  return (
+                    <div key={i} style={{
+                      background: "rgba(255,255,255,.02)",
+                      border: "1px solid #1a3a1a",
+                      borderRadius: 8, padding: "8px 10px",
+                    }}>
+                      <div style={{
+                        display: "flex", justifyContent: "space-between",
+                        fontSize: 11, color: "#3a5a3a", marginBottom: 5,
+                      }}>
+                        <span>Trick {i + 1}</span>
+                        <span style={{ color: tc(wTeam) }}>
+                          {seatName[trick.winnerSeat]} wins{pts > 0 ? ` · ${pts} card pts` : ""}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        {trick.plays.map(({ seatIndex, card }) => (
+                          <div key={seatIndex} style={{ textAlign: "center" }}>
+                            <CardChip card={card} />
+                            <div style={{ fontSize: 10, color: "#3a5a3a", marginTop: 1 }}>
+                              {seatName[seatIndex]}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           onClick={onClose}
