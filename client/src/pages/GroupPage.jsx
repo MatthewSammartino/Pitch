@@ -27,8 +27,10 @@ export default function GroupPage() {
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const isLegacy = slug === "sammartino-group";
 
   useEffect(() => {
+    if (isLegacy) { setLoading(false); return; }
     api.get(`/api/groups/${slug}`)
       .then(setGroup)
       .catch((err) => {
@@ -36,7 +38,17 @@ export default function GroupPage() {
         else setError("Failed to load group.");
       })
       .finally(() => setLoading(false));
-  }, [slug, navigate]);
+  }, [slug, navigate, isLegacy]);
+
+  // Sammartino Group is public to all authenticated users
+  if (isLegacy) {
+    return (
+      <div>
+        <Navbar />
+        <LegacyDashboard />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -52,16 +64,6 @@ export default function GroupPage() {
       <div style={S.page}>
         <Navbar />
         <div style={S.center}>{error}</div>
-      </div>
-    );
-  }
-
-  // Sammartino Group: render the full existing analytics dashboard
-  if (slug === "sammartino-group") {
-    return (
-      <div>
-        <Navbar />
-        <LegacyDashboard />
       </div>
     );
   }

@@ -96,16 +96,21 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {loading ? (
-          <p style={{ color: "#5a7a5a", fontSize: 14 }}>Loading groups…</p>
-        ) : groups.length === 0 ? (
-          <div style={S.emptyState}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>♠</div>
-            <p style={{ marginBottom: 8 }}>You're not in any groups yet.</p>
-            <p>Create a group or use an invite link from a friend.</p>
+        {/* Sammartino Group is always visible to all authenticated users */}
+        <div style={{ ...S.groupCard, borderColor: "#2a5c2a" }}>
+          <div>
+            <div style={S.groupName}>Sammartino Group</div>
+            <div style={S.groupMeta}>Matt · Seth · Mack · Arnav · Henry · 71 games</div>
           </div>
-        ) : (
-          groups.map((g) => (
+          <Link to="/group/sammartino-group" style={S.viewBtn}>
+            View Analytics →
+          </Link>
+        </div>
+
+        {loading ? (
+          <p style={{ color: "#5a7a5a", fontSize: 14, marginTop: 12 }}>Loading groups…</p>
+        ) : groups.filter((g) => g.slug !== "sammartino-group").length > 0 && (
+          groups.filter((g) => g.slug !== "sammartino-group").map((g) => (
             <div key={g.id} style={S.groupCard}>
               <div>
                 <div style={S.groupName}>{g.name}</div>
