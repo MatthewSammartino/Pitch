@@ -34,8 +34,12 @@ function dealHands(playerCount, cardsEach = 6) {
 function getValidCards(hand, trick, trumpSuit) {
   if (trick.length === 0) return [...hand]; // lead anything
   const ledSuit = getEffectiveSuit(trick[0].card, trumpSuit);
-  const matching = hand.filter((c) => getEffectiveSuit(c, trumpSuit) === ledSuit);
-  return matching.length > 0 ? matching : [...hand];
+  // You may always play the led suit OR trump — if you have neither, play anything
+  const valid = hand.filter((c) => {
+    const eff = getEffectiveSuit(c, trumpSuit);
+    return eff === ledSuit || eff === trumpSuit;
+  });
+  return valid.length > 0 ? valid : [...hand];
 }
 
 /**
