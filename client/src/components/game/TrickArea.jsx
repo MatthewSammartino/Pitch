@@ -1,5 +1,5 @@
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
-const RED_SUITS    = new Set(["h", "d"]);
+const SUIT_COLORS  = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
 
 function parseCard(cardId) {
   if (!cardId) return { rank: "", suit: "s" };
@@ -7,64 +7,84 @@ function parseCard(cardId) {
   return { rank: cardId[0], suit: cardId[1] };
 }
 
-function MiniCard({ cardId }) {
+function TrickCard({ cardId, label }) {
+  if (!cardId) {
+    return <div style={{ width: 44, height: 62 }} />;
+  }
   const { rank, suit } = parseCard(cardId);
-  const isRed = RED_SUITS.has(suit);
+  const color = SUIT_COLORS[suit];
   return (
-    <div style={{
-      width: 44, height: 62, borderRadius: 6,
-      border: "1px solid #2a5c2a",
-      background: "rgba(255,255,255,.06)",
-      display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-    }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: isRed ? "#e05c5c" : "#f0e8d0", lineHeight: 1 }}>
-        {rank}
+    <div style={{ textAlign: "center" }}>
+      <div style={{
+        width: 44, height: 62, borderRadius: 6,
+        border: `1px solid ${color}`,
+        background: "rgba(255,255,255,.07)",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        margin: "0 auto",
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color, lineHeight: 1 }}>{rank}</div>
+        <div style={{ fontSize: 16, color, lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</div>
       </div>
-      <div style={{ fontSize: 16, color: isRed ? "#e05c5c" : "#f0e8d0", lineHeight: 1 }}>
-        {SUIT_SYMBOLS[suit]}
-      </div>
+      <div style={{ fontSize: 10, color: "#5a7a5a", marginTop: 3 }}>{label}</div>
     </div>
   );
 }
 
-export default function TrickArea({ currentTrick, seats, trumpSuit }) {
-  const seatName = {};
-  for (const s of (seats || [])) seatName[s.seatIndex] = s.displayName;
+export default function TrickArea({ currentTrick, seats, trumpSuit, mySeatIndex }) {
+  const seatMap = {};
+  for (const s of (seats || [])) seatMap[s.seatIndex] = s;
 
-  const trumpLabel = trumpSuit
-    ? `Trump: ${SUIT_SYMBOLS[trumpSuit]}`
-    : null;
+  const plays = {};
+  for (const play of (currentTrick || [])) plays[play.seatIndex] = play.card;
+
+  const v       = seats?.length || 4;
+  const myIdx   = mySeatIndex ?? 0;
+  const northIdx = (myIdx + 2) % v;
+  const westIdx  = (myIdx + 1) % v;
+  const eastIdx  = (myIdx + 3) % v;
+
+  const trumpColor = trumpSuit ? SUIT_COLORS[trumpSuit] : "#3a5a3a";
 
   return (
     <div style={{
-      minHeight: 120,
-      display: "flex",
-      flexDirection: "column",
+      display: "grid",
+      gridTemplateAreas: `". north ." "west center east" ". south ."`,
+      gridTemplateColumns: "1fr auto 1fr",
+      gridTemplateRows: "auto auto auto",
+      gap: "8px 16px",
+      justifyItems: "center",
       alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      padding: "12px 0",
+      padding: "16px 12px",
+      minHeight: 200,
     }}>
-      {trumpLabel && (
-        <div style={{ fontSize: 13, color: "#5a7a5a", marginBottom: 4 }}>{trumpLabel}</div>
-      )}
-      {currentTrick && currentTrick.length > 0 ? (
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
-          {currentTrick.map(({ seatIndex, card }) => (
-            <div key={seatIndex} style={{ textAlign: "center" }}>
-              <MiniCard cardId={card} />
-              <div style={{ fontSize: 11, color: "#5a7a5a", marginTop: 4 }}>
-                {seatName[seatIndex] || `Seat ${seatIndex}`}
-              </div>
+      <div style={{ gridArea: "north" }}>
+        <TrickCard cardId={plays[northIdx]} label={seatMap[northIdx]?.displayName} />
+      </div>
+      <div style={{ gridArea: "west" }}>
+        <TrickCard cardId={plays[westIdx]} label={seatMap[westIdx]?.displayName} />
+      </div>
+      <div style={{ gridArea: "center", textAlign: "center" }}>
+        {trumpSuit && (
+          <>
+            <div style={{ fontSize: 26, color: trumpColor, lineHeight: 1 }}>
+              {SUIT_SYMBOLS[trumpSuit]}
             </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ color: "#2a4a2a", fontSize: 13 }}>
-          {trumpSuit ? "Waiting for lead…" : ""}
-        </div>
-      )}
+            <div style={{ fontSize: 10, color: "#3a5a3a", marginTop: 2, letterSpacing: 1 }}>
+              TRUMP
+            </div>
+          </>
+        )}
+        {!trumpSuit && (
+          <div style={{ width: 20, height: 20 }} />
+        )}
+      </div>
+      <div style={{ gridArea: "east" }}>
+        <TrickCard cardId={plays[eastIdx]} label={seatMap[eastIdx]?.displayName} />
+      </div>
+      <div style={{ gridArea: "south" }}>
+        <TrickCard cardId={plays[myIdx]} label="You" />
+      </div>
     </div>
   );
 }

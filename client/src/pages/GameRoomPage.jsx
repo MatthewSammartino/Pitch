@@ -120,54 +120,54 @@ export default function GameRoomPage() {
   const mySeat = game?.seats?.find((s) => s.userId === user?.id);
   const myTeam = mySeat?.team;
 
-  // Arrange other players: partner across, opponents left/right
+  // Compass positions: clockwise from me → west (left), north (across), east (right)
   function getPositionedSeats() {
     if (!game || !mySeat) return {};
-    const others = game.seats.filter((s) => s.seatIndex !== mySeat.seatIndex);
-    // For 4-player: seats[0]&[2] are partners, [1]&[3] are partners
-    // Relative positions from my seat clockwise: right, top, left
-    const positions = ["right", "top", "left"];
-    const result = {};
-    others.forEach((s, i) => { result[positions[i % 3]] = s; });
-    return result;
+    const idx = mySeat.seatIndex;
+    const v   = game.variant;
+    return {
+      north: game.seats.find((s) => s.seatIndex === (idx + 2) % v),
+      west:  game.seats.find((s) => s.seatIndex === (idx + 1) % v),
+      east:  game.seats.find((s) => s.seatIndex === (idx + 3) % v),
+    };
   }
 
   const positioned = getPositionedSeats();
 
-  function OpponentBox({ seat }) {
+  function OpponentBox({ seat, compact }) {
     if (!seat) return null;
     const isTeammate = seat.team === myTeam;
-    const isNext = game?.nextLeaderSeat === seat.seatIndex ||
-                   (game?.status === "BIDDING" && game?.currentBidderSeat === seat.seatIndex);
-    const cardCount = game?.status !== "GAME_OVER"
-      ? (6 - (game?.tricksPlayed || 0)) // rough estimate
-      : 0;
+    const isNext = game?.status === "TRICK_PLAYING"
+      ? game?.nextLeaderSeat === seat.seatIndex
+      : game?.status === "BIDDING" && game?.currentBidderSeat === seat.seatIndex;
 
     return (
       <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center",
-        gap: 4, minWidth: 80,
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+        minWidth: compact ? 60 : 90,
       }}>
         <div style={{
-          padding: "4px 10px", borderRadius: 10,
+          padding: "4px 10px", borderRadius: 10, whiteSpace: "nowrap",
           border: `1px solid ${isNext ? "#f0c040" : isTeammate ? "#1e6a4e" : "#2a3a2a"}`,
           background: isNext ? "rgba(240,192,64,.1)" : "transparent",
           color: isTeammate ? "#4fc3a1" : "#e8dfc8",
-          fontSize: 13, fontFamily: "Georgia,serif",
+          fontSize: compact ? 11 : 13, fontFamily: "Georgia,serif",
         }}>
           {seat.displayName}
-          {isTeammate && <span style={{ color: "#3a7a5a", fontSize: 11, marginLeft: 4 }}>●</span>}
+          {isTeammate && <span style={{ color: "#3a7a5a", fontSize: 10, marginLeft: 4 }}>●</span>}
         </div>
         {/* Card backs */}
-        <div style={{ display: "flex", gap: 3 }}>
-          {Array.from({ length: Math.max(0, myHand.length) }).map((_, i) => (
-            <div key={i} style={{
-              width: 14, height: 20, borderRadius: 2,
-              background: "linear-gradient(135deg, #1e4a1e, #0d2b0d)",
-              border: "1px solid #2a5c2a",
-            }} />
-          ))}
-        </div>
+        {!compact && (
+          <div style={{ display: "flex", gap: 3 }}>
+            {Array.from({ length: Math.max(0, myHand.length) }).map((_, i) => (
+              <div key={i} style={{
+                width: 10, height: 16, borderRadius: 2,
+                background: "linear-gradient(135deg,#1e4a1e,#0d2b0d)",
+                border: "1px solid #2a5c2a",
+              }} />
+            ))}
+          </div>
+        )}
         {game?.status === "BIDDING" && game.bids[seat.seatIndex] !== undefined && (
           <div style={{ fontSize: 11, color: "#5a7a5a" }}>
             {game.bids[seat.seatIndex] === "pass" ? "Pass" : `Bid ${game.bids[seat.seatIndex]}`}
@@ -209,35 +209,46 @@ export default function GameRoomPage() {
       {game && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 700, margin: "0 auto", width: "100%", padding: "16px 12px" }}>
 
-          {/* Opponents row */}
-          <div style={{ display: "flex", justifyContent: "space-around", alignItems: "flex-start", marginBottom: 8 }}>
-            <OpponentBox seat={positioned.left} />
-            <OpponentBox seat={positioned.top} />
-            <OpponentBox seat={positioned.right} />
-          </div>
-
-          {/* Trick area */}
+          {/* Compass table layout */}
           <div style={{
-            background: "rgba(0,40,0,.3)",
-            border: "1px solid #1e4a1e",
-            borderRadius: 16,
-            minHeight: 140,
-            marginBottom: 8,
+            display: "grid",
+            gridTemplateAreas: `". north ." "west table east" ". south ."`,
+            gridTemplateColumns: "110px 1fr 110px",
+            gridTemplateRows: "auto auto auto",
+            gap: 10,
+            alignItems: "center",
+            justifyItems: "center",
+            marginBottom: 10,
           }}>
-            <TrickArea
-              currentTrick={game.currentTrick}
-              seats={game.seats}
-              trumpSuit={game.trumpSuit}
-            />
-          </div>
-
-          {/* My seat label */}
-          {mySeat && (
-            <div style={{ textAlign: "center", fontSize: 12, color: "#5a7a5a", marginBottom: 4 }}>
-              You (Team {mySeat.team === 0 ? "A" : "B"}) · Seat {mySeat.seatIndex + 1}
-              {game.dealerSeat === mySeat.seatIndex && " · Dealer"}
+            <div style={{ gridArea: "north" }}>
+              <OpponentBox seat={positioned.north} />
             </div>
-          )}
+            <div style={{ gridArea: "west" }}>
+              <OpponentBox seat={positioned.west} compact />
+            </div>
+            <div style={{
+              gridArea: "table", width: "100%",
+              background: "rgba(0,40,0,.3)",
+              border: "1px solid #1e4a1e",
+              borderRadius: 16,
+            }}>
+              <TrickArea
+                currentTrick={game.currentTrick}
+                seats={game.seats}
+                trumpSuit={game.trumpSuit}
+                mySeatIndex={mySeat?.seatIndex ?? 0}
+              />
+            </div>
+            <div style={{ gridArea: "east" }}>
+              <OpponentBox seat={positioned.east} compact />
+            </div>
+            <div style={{ gridArea: "south", textAlign: "center", fontSize: 12, color: "#5a7a5a" }}>
+              {mySeat && <>
+                You · Team {mySeat.team === 0 ? "A" : "B"}
+                {game.dealerSeat === mySeat.seatIndex && " · Dealer"}
+              </>}
+            </div>
+          </div>
 
           {/* Action panel (bid / declare trump) */}
           {myTurn && (

@@ -1,15 +1,27 @@
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
-const RED_SUITS    = new Set(["h", "d"]);
+const SUIT_COLORS  = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
+
+const SUIT_ORDER = { s: 0, h: 1, d: 2, c: 3 };
+const RANK_ORDER = { A: 0, K: 1, Q: 2, J: 3, "10": 4, "9": 5, "8": 6, "7": 7, "6": 8, "5": 9, "4": 10, "3": 11, "2": 12 };
 
 function parseCard(cardId) {
   if (cardId.length === 3) return { rank: cardId.slice(0, 2), suit: cardId[2] };
   return { rank: cardId[0], suit: cardId[1] };
 }
 
-function CardTile({ cardId, valid, selected, onClick }) {
+function sortHand(hand) {
+  return [...hand].sort((a, b) => {
+    const pa = parseCard(a), pb = parseCard(b);
+    const sd = SUIT_ORDER[pa.suit] - SUIT_ORDER[pb.suit];
+    if (sd !== 0) return sd;
+    return RANK_ORDER[pa.rank] - RANK_ORDER[pb.rank];
+  });
+}
+
+function CardTile({ cardId, valid, onClick }) {
   const { rank, suit } = parseCard(cardId);
-  const isRed = RED_SUITS.has(suit);
-  const canPlay = valid !== undefined; // undefined means not in play phase
+  const color   = SUIT_COLORS[suit];
+  const canPlay = valid !== undefined;
 
   return (
     <div
@@ -18,7 +30,7 @@ function CardTile({ cardId, valid, selected, onClick }) {
         width: 52,
         height: 76,
         borderRadius: 8,
-        border: `2px solid ${valid ? (isRed ? "#e05c5c" : "#f0e8d0") : "#1e4a1e"}`,
+        border: `2px solid ${valid ? color : "#1e4a1e"}`,
         background: valid ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.02)",
         display: "flex",
         flexDirection: "column",
@@ -26,19 +38,14 @@ function CardTile({ cardId, valid, selected, onClick }) {
         justifyContent: "center",
         cursor: valid ? "pointer" : "default",
         opacity: canPlay && !valid ? 0.4 : 1,
-        transform: valid ? "translateY(0)" : "none",
         transition: "all .1s",
         userSelect: "none",
       }}
       onMouseEnter={(e) => { if (valid) e.currentTarget.style.transform = "translateY(-6px)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
     >
-      <div style={{ fontSize: 18, fontWeight: 700, color: isRed ? "#e05c5c" : "#f0e8d0", lineHeight: 1 }}>
-        {rank}
-      </div>
-      <div style={{ fontSize: 20, color: isRed ? "#e05c5c" : "#f0e8d0", lineHeight: 1 }}>
-        {SUIT_SYMBOLS[suit]}
-      </div>
+      <div style={{ fontSize: 18, fontWeight: 700, color, lineHeight: 1 }}>{rank}</div>
+      <div style={{ fontSize: 20, color, lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</div>
     </div>
   );
 }
@@ -54,6 +61,8 @@ export default function HandDisplay({ hand, validCards, onPlayCard }) {
     );
   }
 
+  const sorted = sortHand(hand);
+
   return (
     <div style={{
       display: "flex",
@@ -62,7 +71,7 @@ export default function HandDisplay({ hand, validCards, onPlayCard }) {
       flexWrap: "wrap",
       padding: "16px 12px",
     }}>
-      {hand.map((cardId) => (
+      {sorted.map((cardId) => (
         <CardTile
           key={cardId}
           cardId={cardId}

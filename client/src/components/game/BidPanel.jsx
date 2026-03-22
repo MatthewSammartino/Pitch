@@ -1,5 +1,6 @@
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
-const SUITS = ["h", "d", "c", "s"];
+const SUIT_COLORS  = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
+const SUITS = ["s", "h", "d", "c"];
 
 const btn = (active) => ({
   padding: "10px 20px",
@@ -46,8 +47,8 @@ export default function BidPanel({ action, validBids, canPass, onBid, onDeclareT
                 ...btn(false),
                 fontSize: 22,
                 padding: "10px 16px",
-                color: (s === "h" || s === "d") ? "#e05c5c" : "#f0e8d0",
-                borderColor: (s === "h" || s === "d") ? "#5c2020" : "#2a4a2a",
+                color: SUIT_COLORS[s],
+                borderColor: SUIT_COLORS[s] + "55",
               }}
               onClick={() => onDeclareTrump(s)}
             >
