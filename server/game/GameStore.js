@@ -14,11 +14,11 @@ class LobbyState {
     this.createdBy  = createdBy;
     this.status     = "waiting";
     this.seats      = Array(variant).fill(null);
-    this.teamNames  = ["Team A", "Team B"];
+    this.teamNames  = ["A", "B"];
   }
 
   setTeamNames(nameA, nameB) {
-    this.teamNames = [nameA || "Team A", nameB || "Team B"];
+    this.teamNames = [nameA || "A", nameB || "B"];
     return { ok: true };
   }
 

@@ -111,9 +111,9 @@ const S = {
   },
 };
 
-function teamLabel(seatIndex, variant) {
-  if (variant === 4) return seatIndex % 2 === 0 ? "Team A" : "Team B";
-  return seatIndex % 2 === 0 ? "Team A" : "Team B";
+function teamLabel(seatIndex, teamNames) {
+  const t = seatIndex % 2;
+  return teamNames?.[t] ?? (t === 0 ? "A" : "B");
 }
 
 function teamColor(seatIndex) {
@@ -306,7 +306,7 @@ export default function GameLobbyPage() {
                             : "🎴"}
                         </div>
                         <div style={S.seatName}>{isMe ? "You" : seat.displayName}</div>
-                        <div style={S.seatTeam(tc)}>{teamLabel(i, lobby.variant)}</div>
+                        <div style={S.seatTeam(tc)}>{teamLabel(i, lobby.teamNames)}</div>
                         {isMe && (
                           <button style={S.leaveBtn} onClick={(e) => { e.stopPropagation(); leaveSeat(); }}>
                             Leave
@@ -317,7 +317,7 @@ export default function GameLobbyPage() {
                       <>
                         <div style={{ fontSize: 28, marginBottom: 4, color: "#2a4a2a" }}>♠</div>
                         <div style={{ fontSize: 13, color: "#3a5a3a" }}>Empty</div>
-                        <div style={S.seatTeam(tc)}>{teamLabel(i, lobby.variant)}</div>
+                        <div style={S.seatTeam(tc)}>{teamLabel(i, lobby.teamNames)}</div>
                         {!iSeated && (
                           <button style={S.sitBtn} onClick={(e) => { e.stopPropagation(); takeSeat(i); }}>
                             Sit Here
