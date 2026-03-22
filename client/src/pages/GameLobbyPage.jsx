@@ -286,7 +286,7 @@ export default function GameLobbyPage() {
         )}
 
         {/* Start button (host only) */}
-        {isHost && (
+        {lobby && isHost && (
           <button
             style={S.startBtn(isFull)}
             onClick={isFull ? startGame : undefined}
@@ -296,11 +296,13 @@ export default function GameLobbyPage() {
         )}
 
         <p style={S.status}>
-          {isHost
-            ? isFull
-              ? "All seats filled — you can start the game."
-              : `Waiting for ${lobby ? lobby.variant - lobby.filledCount : "…"} more player(s)…`
-            : "Waiting for the host to start the game…"}
+          {!lobby
+            ? connStatus === "failed" ? "Connection failed — try refreshing." : "Connecting…"
+            : isHost
+              ? isFull
+                ? "All seats filled — you can start the game."
+                : `Waiting for ${lobby.variant - lobby.filledCount} more player(s)…`
+              : "Waiting for the host to start the game…"}
         </p>
       </div>
     </div>
