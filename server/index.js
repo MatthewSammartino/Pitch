@@ -17,6 +17,9 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
+// ── Trust Railway's reverse proxy so secure cookies work over HTTPS ────────
+app.set("trust proxy", 1);
+
 // ── Middleware ─────────────────────────────────────────────────────────────
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
