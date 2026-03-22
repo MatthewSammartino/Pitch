@@ -39,13 +39,13 @@ function getEffectiveSuit(cardId, trumpSuit) {
 }
 
 // Trump priority (higher = stronger)
-// Order: on-jack(100) > off-jack(99) > A(12) > K(11) > Q(10) > 10(8) > 9(7) > ... > 2(0)
+// Order: A(13) > K(12) > Q(11) > on-jack(10) > off-jack(9) > 10(8) > 9(7) > ... > 2(0)
 function getTrumpPriority(cardId, trumpSuit) {
   const { rank, suit } = parseCard(cardId);
-  if (rank === "J" && suit === trumpSuit)              return 100; // on-jack
-  if (rank === "J" && suit === getOffJackSuit(trumpSuit)) return 99; // off-jack
-  const order = ["2","3","4","5","6","7","8","9","10","Q","K","A"]; // J excluded
-  return order.indexOf(rank);
+  if (rank === "J" && suit === trumpSuit)                   return 10; // on-jack
+  if (rank === "J" && suit === getOffJackSuit(trumpSuit))   return 9;  // off-jack
+  const p = { "2":0,"3":1,"4":2,"5":3,"6":4,"7":5,"8":6,"9":7,"10":8,"Q":11,"K":12,"A":13 };
+  return p[rank] ?? -1;
 }
 
 module.exports = {
