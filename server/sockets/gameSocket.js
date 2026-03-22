@@ -66,6 +66,68 @@ module.exports = function gameSocket(nsp) {
     if (info) nsp.to(sessionId).emit("game:your_turn", info);
   }
 
+  function autoBotPlay(sessionId) {
+    const game = GameStore.getGame(sessionId);
+    if (!game) return;
+
+    let botUserId = null;
+    let action = null;
+
+    if (game.status === "BIDDING") {
+      const seat = game.getUserBySeat(game.getCurrentBidderSeat());
+      if (seat?.userId?.startsWith("bot-")) { botUserId = seat.userId; action = "bid"; }
+    } else if (game.status === "TRUMP_DECLARATION") {
+      const seat = game.getUserBySeat(game.highBidderSeat);
+      if (seat?.userId?.startsWith("bot-")) { botUserId = seat.userId; action = "trump"; }
+    } else if (game.status === "TRICK_PLAYING") {
+      const seat = game.getUserBySeat(game.nextLeaderSeat);
+      if (seat?.userId?.startsWith("bot-")) { botUserId = seat.userId; action = "card"; }
+    }
+
+    if (!botUserId) return;
+
+    setTimeout(() => {
+      const g = GameStore.getGame(sessionId);
+      if (!g) return;
+
+      if (action === "bid") {
+        const isLast = g.bidIndex === g.variant - 1;
+        const canPass = !(isLast && g.highBidderSeat === -1);
+        const result = g.handleBid(botUserId, canPass ? "pass" : 2);
+        if (result.error) return;
+        nsp.to(sessionId).emit("game:state", g.getPublicState());
+        broadcastTurnNotice(sessionId, g);
+        autoBotPlay(sessionId);
+
+      } else if (action === "trump") {
+        const hand = g.hands[botUserId] || [];
+        const suitCount = { h: 0, d: 0, c: 0, s: 0 };
+        for (const card of hand) suitCount[card.slice(-1)]++;
+        const suit = Object.entries(suitCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "s";
+        const result = g.handleDeclareTrump(botUserId, suit);
+        if (result.error) return;
+        nsp.to(sessionId).emit("game:state", g.getPublicState());
+        broadcastHands(sessionId, g);
+        broadcastTurnNotice(sessionId, g);
+        autoBotPlay(sessionId);
+
+      } else if (action === "card") {
+        const ps = g.getPrivateState(botUserId);
+        const card = ps.validCards[0];
+        if (!card) return;
+        const result = g.handlePlayCard(botUserId, card);
+        if (result.error) return;
+        nsp.to(sessionId).emit("game:state", g.getPublicState());
+        if (result.roundSummary) {
+          handleRoundEnd(sessionId, g, result);
+        } else {
+          broadcastTurnNotice(sessionId, g);
+          autoBotPlay(sessionId);
+        }
+      }
+    }, 800);
+  }
+
   async function handleRoundEnd(sessionId, game, roundResult) {
     const { roundSummary, gameOver, winner } = roundResult;
 
@@ -89,6 +151,7 @@ module.exports = function gameSocket(nsp) {
         nsp.to(sessionId).emit("game:state", game.getPublicState());
         broadcastHands(sessionId, game);
         broadcastTurnNotice(sessionId, game);
+        autoBotPlay(sessionId);
       }, 4000);
     }
   }
@@ -106,8 +169,8 @@ module.exports = function gameSocket(nsp) {
       socket.emit("game:state", game.getPublicState());
       socket.emit("game:your_hand", game.getPrivateState(user.id));
 
-      // If it's already this player's turn, tell them
       broadcastTurnNotice(sessionId, game);
+      autoBotPlay(sessionId);
     });
 
     socket.on("game:request_state", ({ sessionId } = {}) => {
@@ -126,6 +189,7 @@ module.exports = function gameSocket(nsp) {
 
       nsp.to(sessionId).emit("game:state", game.getPublicState());
       broadcastTurnNotice(sessionId, game);
+      autoBotPlay(sessionId);
     });
 
     socket.on("game:declare_trump", ({ sessionId, suit } = {}) => {
@@ -138,6 +202,7 @@ module.exports = function gameSocket(nsp) {
       nsp.to(sessionId).emit("game:state", game.getPublicState());
       broadcastHands(sessionId, game);
       broadcastTurnNotice(sessionId, game);
+      autoBotPlay(sessionId);
     });
 
     socket.on("game:play_card", ({ sessionId, card } = {}) => {
@@ -154,6 +219,7 @@ module.exports = function gameSocket(nsp) {
       } else {
         sendPrivate(sessionId, user.id, "game:your_hand", game.getPrivateState(user.id));
         broadcastTurnNotice(sessionId, game);
+        autoBotPlay(sessionId);
       }
     });
 

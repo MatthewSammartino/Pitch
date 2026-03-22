@@ -190,6 +190,10 @@ export default function GameLobbyPage() {
     socketRef.current?.emit("lobby:start_game", { sessionId });
   }
 
+  function fillBots() {
+    socketRef.current?.emit("lobby:fill_bots", { sessionId });
+  }
+
   function copyLink() {
     navigator.clipboard.writeText(lobbyUrl).then(() => {
       setCopied(true);
@@ -285,14 +289,21 @@ export default function GameLobbyPage() {
           </div>
         )}
 
-        {/* Start button (host only) */}
+        {/* Host controls */}
         {lobby && isHost && (
-          <button
-            style={S.startBtn(isFull)}
-            onClick={isFull ? startGame : undefined}
-          >
-            Start Game
-          </button>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 8 }}>
+            {!isFull && (
+              <button style={S.sitBtn} onClick={fillBots}>
+                Fill with Bots
+              </button>
+            )}
+            <button
+              style={S.startBtn(isFull)}
+              onClick={isFull ? startGame : undefined}
+            >
+              Start Game
+            </button>
+          </div>
         )}
 
         <p style={S.status}>

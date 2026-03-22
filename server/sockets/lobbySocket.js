@@ -76,6 +76,19 @@ module.exports = function lobbySocket(nsp) {
       nsp.to(sessionId).emit("lobby:state", lobby.publicState());
     });
 
+    // ── lobby:fill_bots ─────────────────────────────────────────────────────
+    socket.on("lobby:fill_bots", ({ sessionId } = {}) => {
+      const lobby = GameStore.getLobby(sessionId);
+      if (!lobby) return socket.emit("lobby:error", { message: "Lobby not found." });
+      if (lobby.createdBy !== user.id)
+        return socket.emit("lobby:error", { message: "Only the host can fill bots." });
+
+      lobby.seats = lobby.seats.map((s, i) =>
+        s || { userId: `bot-${i}`, displayName: `Bot ${i + 1}`, avatarUrl: null, isBot: true }
+      );
+      nsp.to(sessionId).emit("lobby:state", lobby.publicState());
+    });
+
     // ── lobby:start_game ────────────────────────────────────────────────────
     socket.on("lobby:start_game", async ({ sessionId } = {}) => {
       const lobby = GameStore.getLobby(sessionId);
