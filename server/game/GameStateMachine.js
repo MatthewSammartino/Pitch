@@ -1,4 +1,5 @@
 const { dealHands, getValidCards, determineTrickWinner, scoreRound } = require("./GameEngine");
+const { getEffectiveSuit } = require("./deckConstants");
 
 const TARGET_SCORE   = 15;
 const CARDS_PER_HAND = 6; // 4-player; Phase 5 will adjust for 6-player
@@ -47,6 +48,9 @@ class GameStateMachine {
 
     // Holds the last completed trick for display until the next trick starts
     this.completedTrick = null;
+
+    // Bidder must lead trump on the first trick of each round
+    this.mustLeadTrump = false;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -99,7 +103,13 @@ class GameStateMachine {
 
     let validCards = [];
     if (this.status === "TRICK_PLAYING" && this.nextLeaderSeat === seat.seatIndex) {
-      validCards = getValidCards(hand, this.currentTrick, this.trumpSuit);
+      if (this.mustLeadTrump && this.currentTrick.length === 0) {
+        // Bidder must lead trump on the first trick
+        const trumpCards = hand.filter((c) => getEffectiveSuit(c, this.trumpSuit) === this.trumpSuit);
+        validCards = trumpCards.length > 0 ? trumpCards : [...hand];
+      } else {
+        validCards = getValidCards(hand, this.currentTrick, this.trumpSuit);
+      }
     }
     return { hand, validCards };
   }
@@ -162,7 +172,8 @@ class GameStateMachine {
       return { error: "Invalid suit" };
 
     this.trumpSuit      = suit;
-    this.nextLeaderSeat = this.highBidderSeat; // bidder leads first trick
+    this.nextLeaderSeat = this.highBidderSeat;
+    this.mustLeadTrump  = true; // bidder must pitch trump on the first trick
     this.status         = "TRICK_PLAYING";
 
     return { ok: true };
@@ -181,8 +192,15 @@ class GameStateMachine {
     const valid = getValidCards(hand, this.currentTrick, this.trumpSuit);
     if (!valid.includes(cardId)) return { error: "Must follow the led suit" };
 
-    // Starting a new trick — clear the completed trick display
-    if (this.currentTrick.length === 0) this.completedTrick = null;
+    // Starting a new trick
+    if (this.currentTrick.length === 0) {
+      this.completedTrick = null;
+      if (this.mustLeadTrump) {
+        if (getEffectiveSuit(cardId, this.trumpSuit) !== this.trumpSuit)
+          return { error: "You must lead with trump (the pitch) on the first trick" };
+        this.mustLeadTrump = false;
+      }
+    }
 
     // Remove from hand, add to trick
     this.hands[userId] = hand.filter((c) => c !== cardId);
@@ -264,6 +282,7 @@ class GameStateMachine {
     this.currentBid     = 1;
     this.highBidderSeat = -1;
     this.trumpSuit      = null;
+    this.mustLeadTrump  = false;
     this.currentTrick   = [];
     this.trickHistory   = [];
     this.nextLeaderSeat = -1;
