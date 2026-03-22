@@ -53,19 +53,33 @@ const io = new SocketServer(server, {
   cors: { origin: true, credentials: true },
 });
 
-// Share express-session with sockets, then look up the user directly from DB.
-// This avoids passport needing a real response object (which sockets don't have).
-const wrap = (m) => (socket, next) => m(socket.request, socket.request.res || {}, next);
-io.use(wrap(sessionMiddleware));
+// Share express-session with sockets.
+// express-session calls several methods on res; provide stubs so it doesn't throw.
+const fakeRes = {
+  getHeader:  () => undefined,
+  setHeader:  () => {},
+  writeHead:  () => {},
+  end:        () => {},
+  on:         () => {},
+  once:       () => {},
+  emit:       () => {},
+};
+io.use((socket, next) => sessionMiddleware(socket.request, fakeRes, next));
+
+// After session is attached, look up the user from DB (avoids needing passport on sockets).
 io.use(async (socket, next) => {
   try {
     const userId = socket.request.session?.passport?.user;
-    if (!userId) return next(new Error("unauthorized"));
+    if (!userId) {
+      console.log("[socket auth] no passport.user in session");
+      return next(new Error("unauthorized"));
+    }
     const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
     if (!rows.length) return next(new Error("unauthorized"));
     socket.request.user = rows[0];
     next();
   } catch (err) {
+    console.error("[socket auth] error:", err.message);
     next(err);
   }
 });
