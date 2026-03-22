@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
@@ -66,9 +66,18 @@ const S = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const navigate  = useNavigate();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [creatingGame, setCreatingGame] = useState(false);
+
+  function startGame(variant) {
+    setCreatingGame(true);
+    api.post("/api/sessions", { variant })
+      .then((s) => navigate(`/lobby/${s.id}`))
+      .catch(() => setCreatingGame(false));
+  }
 
   useEffect(() => {
     api.get("/api/groups")
@@ -86,7 +95,41 @@ export default function DashboardPage() {
       <Navbar />
       <div style={S.body}>
         <h1 style={S.greeting}>Welcome back, {user?.display_name || "Player"}.</h1>
-        <p style={S.sub}>Your friend groups and games are below.</p>
+        <p style={S.sub}>Play a game or browse your groups below.</p>
+
+        {/* New game */}
+        <div style={{ marginBottom: 36 }}>
+          <div style={S.sectionTitle}><span>Play Now</span></div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button
+              disabled={creatingGame}
+              onClick={() => startGame(4)}
+              style={{
+                padding: "14px 28px", borderRadius: 20,
+                border: "1px solid #f0c040", background: "rgba(240,192,64,.1)",
+                color: "#f0c040", fontSize: 15, cursor: "pointer",
+                fontFamily: "Georgia,serif", letterSpacing: 0.5,
+              }}
+            >
+              🃏 New 4-Player Game
+            </button>
+            <button
+              disabled={creatingGame}
+              onClick={() => startGame(6)}
+              style={{
+                padding: "14px 28px", borderRadius: 20,
+                border: "1px solid #2a5c2a", background: "transparent",
+                color: "#8aab8a", fontSize: 15, cursor: "pointer",
+                fontFamily: "Georgia,serif",
+              }}
+            >
+              🃏 New 6-Player Game
+            </button>
+          </div>
+          <p style={{ color: "#3a5a3a", fontSize: 12, marginTop: 8 }}>
+            Create a lobby, share the link with friends — anyone with a Google account can join.
+          </p>
+        </div>
 
         {/* Groups section */}
         <div style={S.sectionTitle}>

@@ -6,6 +6,7 @@ import GroupPage      from "./pages/GroupPage";
 import ProfilePage    from "./pages/ProfilePage";
 import JoinGroupPage  from "./pages/JoinGroupPage";
 import GameLobbyPage  from "./pages/GameLobbyPage";
+import GameRoomPage   from "./pages/GameRoomPage";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
       <Route path="/group/:slug"        element={<ProtectedRoute><GroupPage /></ProtectedRoute>} />
       <Route path="/profile"            element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/lobby/:sessionId"   element={<ProtectedRoute><GameLobbyPage /></ProtectedRoute>} />
+      <Route path="/game/:sessionId"    element={<ProtectedRoute><GameRoomPage /></ProtectedRoute>} />
 
       {/* 404 fallback */}
       <Route path="*" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />

@@ -1,18 +1,19 @@
 /**
- * In-memory lobby/game store.
- * Phase 3: tracks lobby seat state.
- * Phase 4: will be extended with full GameStateMachine.
+ * In-memory store for active lobbies and games.
+ * Both are keyed by sessionId (UUID).
  */
+const GameStateMachine = require("./GameStateMachine");
+
+// ── Lobby state ─────────────────────────────────────────────────────────────
 
 class LobbyState {
   constructor(sessionId, groupId, variant, createdBy) {
-    this.sessionId = sessionId;
-    this.groupId   = groupId;
-    this.variant   = variant;   // 4 or 6
-    this.createdBy = createdBy; // user id
-    this.status    = "waiting";
-    this.seats     = Array(variant).fill(null);
-    // null = empty; { userId, displayName, avatarUrl } = taken
+    this.sessionId  = sessionId;
+    this.groupId    = groupId;
+    this.variant    = variant;
+    this.createdBy  = createdBy;
+    this.status     = "waiting";
+    this.seats      = Array(variant).fill(null);
   }
 
   takeSeat(seatIndex, user) {
@@ -21,11 +22,7 @@ class LobbyState {
     if (this.seats[seatIndex] !== null)
       return { error: "Seat is already taken" };
 
-    // Remove the user from any other seat first
-    this.seats = this.seats.map((s) =>
-      s && s.userId === user.id ? null : s
-    );
-
+    this.seats = this.seats.map((s) => (s && s.userId === user.id ? null : s));
     this.seats[seatIndex] = {
       userId:      user.id,
       displayName: user.display_name,
@@ -35,50 +32,60 @@ class LobbyState {
   }
 
   leaveSeat(userId) {
-    this.seats = this.seats.map((s) =>
-      s && s.userId === userId ? null : s
-    );
+    this.seats = this.seats.map((s) => (s && s.userId === userId ? null : s));
     return { ok: true };
   }
 
-  filledCount() {
-    return this.seats.filter(Boolean).length;
-  }
+  filledCount() { return this.seats.filter(Boolean).length; }
+  isFull()      { return this.filledCount() === this.variant; }
 
-  isFull() {
-    return this.filledCount() === this.variant;
+  /** Converts to GameStateMachine-compatible seat array */
+  toGameSeats() {
+    return this.seats.map((s, i) => ({
+      seatIndex:   i,
+      userId:      s.userId,
+      displayName: s.displayName,
+      avatarUrl:   s.avatarUrl,
+    }));
   }
 
   publicState() {
     return {
-      sessionId:  this.sessionId,
-      variant:    this.variant,
-      status:     this.status,
-      createdBy:  this.createdBy,
-      seats:      this.seats,
+      sessionId:   this.sessionId,
+      variant:     this.variant,
+      status:      this.status,
+      createdBy:   this.createdBy,
+      seats:       this.seats,
       filledCount: this.filledCount(),
     };
   }
 }
 
-const store = new Map(); // sessionId → LobbyState
+// ── Maps ─────────────────────────────────────────────────────────────────────
+
+const lobbies = new Map(); // sessionId → LobbyState
+const games   = new Map(); // sessionId → GameStateMachine
+
+// ── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
-  create(sessionId, groupId, variant, createdBy) {
+  // Lobby
+  createLobby(sessionId, groupId, variant, createdBy) {
     const lobby = new LobbyState(sessionId, groupId, variant, createdBy);
-    store.set(sessionId, lobby);
+    lobbies.set(sessionId, lobby);
     return lobby;
   },
+  getLobby(sessionId)    { return lobbies.get(sessionId) || null; },
+  deleteLobby(sessionId) { lobbies.delete(sessionId); },
+  hasLobby(sessionId)    { return lobbies.has(sessionId); },
 
-  get(sessionId) {
-    return store.get(sessionId) || null;
+  // Game
+  createGame(sessionId, variant, seats) {
+    const game = new GameStateMachine(sessionId, variant, seats);
+    games.set(sessionId, game);
+    return game;
   },
-
-  delete(sessionId) {
-    store.delete(sessionId);
-  },
-
-  has(sessionId) {
-    return store.has(sessionId);
-  },
+  getGame(sessionId)    { return games.get(sessionId) || null; },
+  deleteGame(sessionId) { games.delete(sessionId); },
+  hasGame(sessionId)    { return games.has(sessionId); },
 };

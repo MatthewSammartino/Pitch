@@ -158,9 +158,9 @@ export default function GameLobbyPage() {
     socket.on("connect_error", onConnectError);
     socket.on("lobby:state", setLobby);
 
-    socket.on("lobby:started", ({ sessionId: sid }) => {
-      navigate(`/game/${sid}`);
-    });
+    const goToGame = ({ sessionId: sid }) => navigate(`/game/${sid}`);
+    socket.on("lobby:started",        goToGame);
+    socket.on("lobby:already_started", goToGame);
 
     socket.on("lobby:error", ({ message }) => {
       setError(message);
@@ -171,7 +171,8 @@ export default function GameLobbyPage() {
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
       socket.off("lobby:state", setLobby);
-      socket.off("lobby:started");
+      socket.off("lobby:started",         goToGame);
+      socket.off("lobby:already_started", goToGame);
       socket.off("lobby:error");
     };
   }, [sessionId, getSocket, navigate]);
