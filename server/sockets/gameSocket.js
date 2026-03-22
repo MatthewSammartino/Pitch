@@ -20,11 +20,6 @@ const { saveRound, saveRoundPoints, finalizeSession } = require("../game/persist
  *   game:error          { message }              → individual only
  */
 module.exports = function gameSocket(nsp) {
-  nsp.use((socket, next) => {
-    if (!socket.request.user) return next(new Error("unauthorized"));
-    next();
-  });
-
   // Track userId → socket for private messages
   // Map<sessionId, Map<userId, socket>>
   const sessionSockets = new Map();

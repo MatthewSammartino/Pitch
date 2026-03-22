@@ -53,8 +53,9 @@ const io = new SocketServer(server, {
   cors: { origin: true, credentials: true },
 });
 
-// Share express-session with sockets.
-// express-session calls several methods on res; provide stubs so it doesn't throw.
+// io.use() only applies to the main "/" namespace in Socket.io v4.
+// For named namespaces (/lobby, /game) we must apply auth middleware directly.
+// Build a reusable auth middleware and pass it to registerSockets.
 const fakeRes = {
   getHeader:  () => undefined,
   setHeader:  () => {},
@@ -64,27 +65,23 @@ const fakeRes = {
   once:       () => {},
   emit:       () => {},
 };
-io.use((socket, next) => sessionMiddleware(socket.request, fakeRes, next));
 
-// After session is attached, look up the user from DB (avoids needing passport on sockets).
-io.use(async (socket, next) => {
-  try {
+function socketAuth(socket, next) {
+  sessionMiddleware(socket.request, fakeRes, (err) => {
+    if (err) return next(err);
     const userId = socket.request.session?.passport?.user;
-    if (!userId) {
-      console.log("[socket auth] no passport.user in session");
-      return next(new Error("unauthorized"));
-    }
-    const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
-    if (!rows.length) return next(new Error("unauthorized"));
-    socket.request.user = rows[0];
-    next();
-  } catch (err) {
-    console.error("[socket auth] error:", err.message);
-    next(err);
-  }
-});
+    if (!userId) return next(new Error("unauthorized"));
+    pool.query("SELECT * FROM users WHERE id = $1", [userId])
+      .then(({ rows }) => {
+        if (!rows.length) return next(new Error("unauthorized"));
+        socket.request.user = rows[0];
+        next();
+      })
+      .catch(next);
+  });
+}
 
-registerSockets(io);
+registerSockets(io, socketAuth);
 
 // Serve static React build files in production
 app.use(express.static(path.join(__dirname, "dist")));

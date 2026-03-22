@@ -16,11 +16,6 @@ const pool      = require("../db/pool");
  *   lobby:error       { message }  (individual)
  */
 module.exports = function lobbySocket(nsp) {
-  nsp.use((socket, next) => {
-    if (!socket.request.user) return next(new Error("unauthorized"));
-    next();
-  });
-
   nsp.on("connection", (socket) => {
     const user = socket.request.user;
 
