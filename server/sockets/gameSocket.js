@@ -1,5 +1,6 @@
 const GameStore   = require("../game/GameStore");
 const { saveRound, saveRoundPoints, finalizeSession } = require("../game/persistence");
+const { getEffectiveSuit } = require("../game/deckConstants");
 
 /**
  * /game namespace
@@ -113,7 +114,17 @@ module.exports = function gameSocket(nsp) {
 
       } else if (action === "card") {
         const ps = g.getPrivateState(botUserId);
-        const card = ps.validCards[0];
+        // When following, prefer led-suit cards over trump — don't waste trump
+        let card;
+        if (g.currentTrick.length > 0) {
+          const ledSuit = getEffectiveSuit(g.currentTrick[0].card, g.trumpSuit);
+          const ledSuitCards = ps.validCards.filter(
+            (c) => getEffectiveSuit(c, g.trumpSuit) === ledSuit
+          );
+          card = (ledSuitCards.length > 0 ? ledSuitCards : ps.validCards)[0];
+        } else {
+          card = ps.validCards[0];
+        }
         if (!card) return;
         const result = g.handlePlayCard(botUserId, card);
         if (result.error) return;
