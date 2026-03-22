@@ -1,8 +1,80 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
 import LegacyDashboard from "../LegacyDashboard";
+
+// ── Lobby bar shown at the top of every group page ──────────────────────────
+function LobbyBar({ groupSlug }) {
+  const navigate = useNavigate();
+  const [lobbies, setLobbies] = useState([]);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    api.get(`/api/sessions/group/${groupSlug}`)
+      .then(setLobbies)
+      .catch(() => {});
+  }, [groupSlug]);
+
+  function createGame(variant) {
+    setCreating(true);
+    api.post("/api/sessions", { groupSlug, variant })
+      .then((s) => navigate(`/lobby/${s.id}`))
+      .catch(() => setCreating(false));
+  }
+
+  return (
+    <div style={{
+      background: "rgba(7,26,7,0.8)",
+      borderBottom: "1px solid #1e4a1e",
+      padding: "12px 24px",
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      flexWrap: "wrap",
+    }}>
+      <span style={{ color: "#5a7a5a", fontSize: 13, marginRight: 4 }}>Play online:</span>
+      <button
+        disabled={creating}
+        onClick={() => createGame(4)}
+        style={{
+          padding: "6px 16px", borderRadius: 14,
+          border: "1px solid #2a5c2a", background: "transparent",
+          color: "#8aab8a", cursor: "pointer", fontSize: 13,
+          fontFamily: "Georgia,serif",
+        }}
+      >
+        + 4-Player Game
+      </button>
+      <button
+        disabled={creating}
+        onClick={() => createGame(6)}
+        style={{
+          padding: "6px 16px", borderRadius: 14,
+          border: "1px solid #2a5c2a", background: "transparent",
+          color: "#8aab8a", cursor: "pointer", fontSize: 13,
+          fontFamily: "Georgia,serif",
+        }}
+      >
+        + 6-Player Game
+      </button>
+      {lobbies.map((lb) => (
+        <Link
+          key={lb.id}
+          to={`/lobby/${lb.id}`}
+          style={{
+            padding: "6px 16px", borderRadius: 14,
+            border: "1px solid #f0c040", background: "rgba(240,192,64,.08)",
+            color: "#f0c040", fontSize: 13, textDecoration: "none",
+            fontFamily: "Georgia,serif",
+          }}
+        >
+          Join {lb.host_name}'s {lb.variant}p lobby →
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 const S = {
   page: {
@@ -45,6 +117,7 @@ export default function GroupPage() {
     return (
       <div>
         <Navbar />
+        <LobbyBar groupSlug="sammartino-group" />
         <LegacyDashboard />
       </div>
     );

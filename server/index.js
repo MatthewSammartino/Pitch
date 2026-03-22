@@ -5,6 +5,8 @@ const path = require("path");
 const session = require("express-session");
 const passport = require("passport");
 const pgSession = require("connect-pg-simple")(session);
+const { Server: SocketServer } = require("socket.io");
+const registerSockets = require("./sockets");
 
 const pool = require("./db/pool");
 const runMigrations = require("./db/migrate");
@@ -12,6 +14,7 @@ const authRouter      = require("./routes/auth");
 const groupsRouter    = require("./routes/groups");
 const usersRouter     = require("./routes/users");
 const analyticsRouter = require("./routes/analytics");
+const sessionsRouter  = require("./routes/sessions");
 
 const app = express();
 const server = http.createServer(app);
@@ -24,26 +27,39 @@ app.set("trust proxy", 1);
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-app.use(
-  session({
-    store: new pgSession({
-      pool,
-      tableName: "auth_sessions",
-      createTableIfMissing: false, // migration 007 creates it
-    }),
-    secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    },
-  })
-);
+// Extract session middleware so Socket.io can share it
+const sessionMiddleware = session({
+  store: new pgSession({
+    pool,
+    tableName: "auth_sessions",
+    createTableIfMissing: false,
+  }),
+  secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  },
+});
 
+app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
+
+// ── Socket.io ──────────────────────────────────────────────────────────────
+const io = new SocketServer(server, {
+  cors: { origin: true, credentials: true },
+});
+
+// Share express-session + passport with socket.io
+const wrap = (m) => (socket, next) => m(socket.request, socket.request.res || {}, next);
+io.use(wrap(sessionMiddleware));
+io.use(wrap(passport.initialize()));
+io.use(wrap(passport.session()));
+
+registerSockets(io);
 
 // Serve static React build files in production
 app.use(express.static(path.join(__dirname, "dist")));
@@ -63,6 +79,7 @@ app.use("/api/auth",      authRouter);
 app.use("/api/groups",    groupsRouter);
 app.use("/api/users",     usersRouter);
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/sessions",  sessionsRouter);
 
 // ── Legacy games routes (UNCHANGED) ───────────────────────────────────────
 app.get("/api/games", async (req, res) => {
