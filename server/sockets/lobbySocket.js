@@ -76,6 +76,15 @@ module.exports = function lobbySocket(nsp) {
       nsp.to(sessionId).emit("lobby:state", lobby.publicState());
     });
 
+    // ── lobby:set_team_names ────────────────────────────────────────────────
+    socket.on("lobby:set_team_names", ({ sessionId, teamNames } = {}) => {
+      const lobby = GameStore.getLobby(sessionId);
+      if (!lobby) return;
+      if (lobby.createdBy !== user.id) return;
+      lobby.setTeamNames(teamNames?.[0], teamNames?.[1]);
+      nsp.to(sessionId).emit("lobby:state", lobby.publicState());
+    });
+
     // ── lobby:fill_bots ─────────────────────────────────────────────────────
     socket.on("lobby:fill_bots", ({ sessionId } = {}) => {
       const lobby = GameStore.getLobby(sessionId);
@@ -109,7 +118,7 @@ module.exports = function lobbySocket(nsp) {
         // Transition lobby → game
         lobby.status = "playing";
         const gameSeats = lobby.toGameSeats();
-        GameStore.createGame(sessionId, lobby.variant, gameSeats);
+        GameStore.createGame(sessionId, lobby.variant, gameSeats, lobby.teamNames);
 
         nsp.to(sessionId).emit("lobby:started", { sessionId });
       } catch (err) {

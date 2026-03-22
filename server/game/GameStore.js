@@ -14,6 +14,12 @@ class LobbyState {
     this.createdBy  = createdBy;
     this.status     = "waiting";
     this.seats      = Array(variant).fill(null);
+    this.teamNames  = ["Team A", "Team B"];
+  }
+
+  setTeamNames(nameA, nameB) {
+    this.teamNames = [nameA || "Team A", nameB || "Team B"];
+    return { ok: true };
   }
 
   takeSeat(seatIndex, user) {
@@ -57,6 +63,7 @@ class LobbyState {
       createdBy:   this.createdBy,
       seats:       this.seats,
       filledCount: this.filledCount(),
+      teamNames:   this.teamNames,
     };
   }
 }
@@ -80,8 +87,8 @@ module.exports = {
   hasLobby(sessionId)    { return lobbies.has(sessionId); },
 
   // Game
-  createGame(sessionId, variant, seats) {
-    const game = new GameStateMachine(sessionId, variant, seats);
+  createGame(sessionId, variant, seats, teamNames) {
+    const game = new GameStateMachine(sessionId, variant, seats, teamNames);
     games.set(sessionId, game);
     return game;
   },

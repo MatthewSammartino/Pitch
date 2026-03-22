@@ -9,6 +9,7 @@ import BidPanel from "../components/game/BidPanel";
 import TrickArea from "../components/game/TrickArea";
 import RoundSummaryModal from "../components/game/RoundSummaryModal";
 import GameOverModal from "../components/game/GameOverModal";
+import RoundHistoryPanel from "../components/game/RoundHistoryPanel";
 
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 
@@ -22,7 +23,8 @@ export default function GameRoomPage() {
   const [myHand, setMyHand]           = useState([]);
   const [validCards, setValidCards]   = useState([]);
   const [myTurn, setMyTurn]           = useState(null);      // { action, validBids, canPass, validCards }
-  const [roundSummary, setRoundSummary] = useState(null);
+  const [roundSummary, setRoundSummary]   = useState(null);
+  const [roundHistory, setRoundHistory]   = useState([]);
   const [gameOver, setGameOver]       = useState(null);      // { winner, teamScores }
   const [error, setError]             = useState("");
   const [connStatus, setConnStatus]   = useState("connecting");
@@ -75,6 +77,7 @@ export default function GameRoomPage() {
 
     socket.on("game:round_over", (summary) => {
       setRoundSummary(summary);
+      setRoundHistory((prev) => [...prev, summary]);
     });
 
     socket.on("game:game_over", (result) => {
@@ -207,7 +210,13 @@ export default function GameRoomPage() {
 
       {/* Game table */}
       {game && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 700, margin: "0 auto", width: "100%", padding: "16px 12px" }}>
+        <div style={{ flex: 1, display: "flex", gap: 0, maxWidth: 940, margin: "0 auto", width: "100%", padding: "8px 0" }}>
+
+          {/* Left: round history */}
+          <RoundHistoryPanel rounds={roundHistory} teamNames={game.teamNames} />
+
+          {/* Right: game play area */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "8px 12px", minWidth: 0 }}>
 
           {/* Compass table layout */}
           <div style={{
@@ -292,6 +301,7 @@ export default function GameRoomPage() {
               ))}
             </div>
           )}
+          </div>{/* end play area */}
         </div>
       )}
 
@@ -300,6 +310,7 @@ export default function GameRoomPage() {
         <RoundSummaryModal
           summary={roundSummary}
           seats={game?.seats}
+          teamNames={game?.teamNames}
           onClose={() => setRoundSummary(null)}
         />
       )}

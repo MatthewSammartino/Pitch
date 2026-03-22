@@ -194,6 +194,12 @@ export default function GameLobbyPage() {
     socketRef.current?.emit("lobby:fill_bots", { sessionId });
   }
 
+  function setTeamName(index, value) {
+    const next = [...(lobby?.teamNames || ["Team A", "Team B"])];
+    next[index] = value;
+    socketRef.current?.emit("lobby:set_team_names", { sessionId, teamNames: next });
+  }
+
   function copyLink() {
     navigator.clipboard.writeText(lobbyUrl).then(() => {
       setCopied(true);
@@ -237,6 +243,43 @@ export default function GameLobbyPage() {
         </div>
 
         {error && <div style={S.errorBox}>{error}</div>}
+
+        {/* Team names (host editable) */}
+        {lobby && (
+          <div style={{ display: "flex", gap: 12, marginBottom: 24, justifyContent: "center" }}>
+            {[0, 1].map((t) => {
+              const color = t === 0 ? "#4fc3a1" : "#f0c040";
+              const name  = lobby.teamNames?.[t] ?? (t === 0 ? "Team A" : "Team B");
+              return (
+                <div key={t} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color, fontSize: 12, whiteSpace: "nowrap" }}>
+                    {t === 0 ? "Seats 1&3" : "Seats 2&4"}
+                  </span>
+                  {isHost ? (
+                    <input
+                      value={name}
+                      onChange={(e) => setTeamName(t, e.target.value)}
+                      maxLength={20}
+                      style={{
+                        background: "transparent",
+                        border: `1px solid ${color}55`,
+                        borderRadius: 8,
+                        color,
+                        fontFamily: "Georgia,serif",
+                        fontSize: 13,
+                        padding: "4px 10px",
+                        width: 120,
+                        outline: "none",
+                      }}
+                    />
+                  ) : (
+                    <span style={{ color, fontWeight: 600, fontSize: 14 }}>{name}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Seats */}
         {lobby && (

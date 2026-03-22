@@ -28,7 +28,7 @@ function trickCardPts(plays) {
   return plays.reduce((sum, { card }) => sum + (CARD_PTS[parseCard(card).rank] || 0), 0);
 }
 
-export default function RoundSummaryModal({ summary, seats, onClose }) {
+export default function RoundSummaryModal({ summary, seats, teamNames, onClose }) {
   const [showTricks, setShowTricks] = useState(false);
   if (!summary) return null;
 
@@ -42,7 +42,7 @@ export default function RoundSummaryModal({ summary, seats, onClose }) {
   const { breakdown, bidderSeat, bid, bidMade, teamPointsEarned, teamScores, trumpSuit, tricks } = summary;
   const bidder = seatName[bidderSeat] || "?";
   const tc = (t) => t === 0 ? "#4fc3a1" : "#f0c040";
-  const tl = (t) => t === 0 ? "Team A" : "Team B";
+  const tl = (t) => teamNames?.[t] ?? (t === 0 ? "Team A" : "Team B");
 
   const scoringRows = [
     breakdown?.high    && { key: "high",    label: "High",     card: breakdown.high.card,    team: breakdown.high.team },
@@ -127,7 +127,7 @@ export default function RoundSummaryModal({ summary, seats, onClose }) {
                 <div key={key + "c"} style={{ padding: "4px 0" }}>
                   {card ? <CardChip card={card} /> : (
                     <span style={{ color: "#5a7a5a", fontSize: 12 }}>
-                      {key === "game" ? `${breakdown.gameValues[0]} vs ${breakdown.gameValues[1]} card pts` : "—"}
+                      {key === "game" ? `${breakdown.gameValues[0]} vs ${breakdown.gameValues[1]} game pts` : "—"}
                     </span>
                   )}
                 </div>
@@ -173,7 +173,7 @@ export default function RoundSummaryModal({ summary, seats, onClose }) {
                       }}>
                         <span>Trick {i + 1}</span>
                         <span style={{ color: tc(wTeam) }}>
-                          {seatName[trick.winnerSeat]} wins{pts > 0 ? ` · ${pts} card pts` : ""}
+                          {seatName[trick.winnerSeat]} wins{pts > 0 ? ` · ${pts} game pts` : ""}
                         </span>
                       </div>
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

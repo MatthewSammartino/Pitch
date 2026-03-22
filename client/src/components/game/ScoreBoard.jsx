@@ -39,14 +39,14 @@ export default function ScoreBoard({ game, myUserId }) {
     }}>
       <div style={{ display: "flex", gap: 24 }}>
         <div>
-          <span style={{ color: "#4fc3a1" }}>Team A</span>
+          <span style={{ color: "#4fc3a1" }}>{game.teamNames?.[0] ?? "Team A"}</span>
           <span style={{ color: "#5a7a5a", marginLeft: 6 }}>{teamA}</span>
           <span style={{ color: "#f0e8d0", fontWeight: 700, marginLeft: 8, fontSize: 18 }}>
             {game.teamScores[0]}
           </span>
         </div>
         <div>
-          <span style={{ color: "#f0c040" }}>Team B</span>
+          <span style={{ color: "#f0c040" }}>{game.teamNames?.[1] ?? "Team B"}</span>
           <span style={{ color: "#5a7a5a", marginLeft: 6 }}>{teamB}</span>
           <span style={{ color: "#f0e8d0", fontWeight: 700, marginLeft: 8, fontSize: 18 }}>
             {game.teamScores[1]}

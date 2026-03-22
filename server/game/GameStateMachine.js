@@ -1,6 +1,6 @@
 const { dealHands, getValidCards, determineTrickWinner, scoreRound } = require("./GameEngine");
 
-const TARGET_SCORE   = 11;
+const TARGET_SCORE   = 15;
 const CARDS_PER_HAND = 6; // 4-player; Phase 5 will adjust for 6-player
 
 class GameStateMachine {
@@ -9,10 +9,11 @@ class GameStateMachine {
    * @param {number} variant  - 4 or 6
    * @param {Array}  seats    - [{ seatIndex, userId, displayName, avatarUrl }]
    */
-  constructor(sessionId, variant, seats) {
+  constructor(sessionId, variant, seats, teamNames = ["Team A", "Team B"]) {
     this.sessionId   = sessionId;
     this.variant     = variant;
     this.targetScore = TARGET_SCORE;
+    this.teamNames   = teamNames;
     this.status      = "BIDDING"; // first action after lobby start
 
     // Assign teams: even seatIndex → team 0, odd → team 1
@@ -69,6 +70,7 @@ class GameStateMachine {
       variant:       this.variant,
       status:        this.status,
       targetScore:   this.targetScore,
+      teamNames:     this.teamNames,
       seats:         this.seats,
       dealerSeat:    this.dealerSeat,
       // Bidding
