@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Create stub users for the 5 existing players (no google_id yet — claimed on first login)
 INSERT INTO users (display_name, legacy_name) VALUES
   ('Matt',   'matt'),
