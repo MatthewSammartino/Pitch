@@ -5,5 +5,11 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'server/dist'
+  },
+  server: {
+    proxy: {
+      '/api': { target: 'http://localhost:3001', changeOrigin: true },
+      '/socket.io': { target: 'http://localhost:3001', ws: true }
+    }
   }
 })
