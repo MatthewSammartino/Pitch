@@ -10,6 +10,7 @@ import TrickArea from "../components/game/TrickArea";
 import RoundSummaryModal from "../components/game/RoundSummaryModal";
 import GameOverModal from "../components/game/GameOverModal";
 import RoundHistoryPanel from "../components/game/RoundHistoryPanel";
+import LiveRoundPanel from "../components/game/LiveRoundPanel";
 
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 
@@ -259,6 +260,17 @@ export default function GameRoomPage() {
               </>}
             </div>
           </div>
+
+          {/* Live round scoring */}
+          {game.liveRoundScoring && (
+            <div style={{ marginBottom: 8 }}>
+              <LiveRoundPanel
+                liveRoundScoring={game.liveRoundScoring}
+                teamNames={game.teamNames}
+                trumpSuit={game.trumpSuit}
+              />
+            </div>
+          )}
 
           {/* Action panel (bid / declare trump) */}
           {myTurn && (

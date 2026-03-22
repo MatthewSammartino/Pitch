@@ -1,5 +1,7 @@
 const { dealHands, getValidCards, determineTrickWinner, scoreRound } = require("./GameEngine");
-const { getEffectiveSuit } = require("./deckConstants");
+const {
+  getEffectiveSuit, getOffJackSuit, getTrumpPriority, parseCard, CARD_POINT_VALUES,
+} = require("./deckConstants");
 
 const TARGET_SCORE   = 15;
 const CARDS_PER_HAND = 6; // 4-player; Phase 5 will adjust for 6-player
@@ -93,6 +95,8 @@ class GameStateMachine {
       teamScores:          this.teamScores,
       roundNumber:         this.roundNumber,
       lastRoundSummary:    this.lastRoundSummary,
+      // Live scoring progress (null except during TRICK_PLAYING)
+      liveRoundScoring: this.status === "TRICK_PLAYING" ? this.getLiveRoundScoring() : null,
     };
   }
 
@@ -224,6 +228,69 @@ class GameStateMachine {
     // Advance clockwise to next player in this trick
     this.nextLeaderSeat = (seat.seatIndex + 1) % this.variant;
     return { ok: true };
+  }
+
+  // ── Live round scoring (for display during trick-playing) ─────────────────
+
+  getLiveRoundScoring() {
+    if (!this.trumpSuit) return null;
+
+    const offSuit   = getOffJackSuit(this.trumpSuit);
+    const jackId    = "J" + this.trumpSuit;
+    const offJackId = "J" + offSuit;
+
+    const seatTeam = {};
+    for (const s of this.seats) seatTeam[s.seatIndex] = s.team;
+
+    const trumpsPlayed = [];
+    const captured = { 0: [], 1: [] };
+
+    // Completed tricks
+    for (const trick of this.trickHistory) {
+      const winnerTeam = seatTeam[trick.winnerSeat];
+      for (const play of trick.plays) {
+        if (getEffectiveSuit(play.card, this.trumpSuit) === this.trumpSuit) {
+          trumpsPlayed.push({ card: play.card, seatIndex: play.seatIndex, team: seatTeam[play.seatIndex] });
+        }
+        captured[winnerTeam].push(play.card);
+      }
+    }
+
+    // Include trump cards from the in-progress trick for High/Low preview
+    for (const play of this.currentTrick) {
+      if (getEffectiveSuit(play.card, this.trumpSuit) === this.trumpSuit) {
+        trumpsPlayed.push({ card: play.card, seatIndex: play.seatIndex, team: seatTeam[play.seatIndex] });
+      }
+    }
+
+    const result = {};
+
+    if (trumpsPlayed.length > 0) {
+      result.high = trumpsPlayed.reduce((a, b) =>
+        getTrumpPriority(a.card, this.trumpSuit) >= getTrumpPriority(b.card, this.trumpSuit) ? a : b
+      );
+      result.low = trumpsPlayed.reduce((a, b) =>
+        getTrumpPriority(a.card, this.trumpSuit) <= getTrumpPriority(b.card, this.trumpSuit) ? a : b
+      );
+    }
+
+    for (let t = 0; t <= 1; t++) {
+      if (captured[t].includes(jackId))    result.jack    = { card: jackId,    team: t };
+      if (captured[t].includes(offJackId)) result.offJack = { card: offJackId, team: t };
+    }
+
+    // Game pts from completed tricks only
+    const gameVals = [0, 0];
+    for (let t = 0; t <= 1; t++) {
+      for (const card of captured[t]) {
+        const { rank, suit } = parseCard(card);
+        const isOffJack = rank === "J" && suit === offSuit;
+        gameVals[t] += isOffJack ? 0.5 : (CARD_POINT_VALUES[rank] || 0);
+      }
+    }
+    result.gameValues = gameVals;
+
+    return result;
   }
 
   // ── Internal ──────────────────────────────────────────────────────────────
