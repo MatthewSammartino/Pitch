@@ -1,0 +1,55 @@
+name: Post-Deploy Smoke Tests
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    name: Smoke test production
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://pitchtracker.up.railway.app
+
+    steps:
+      - name: Wait for Railway deploy
+        # Poll /api/auth/me every 15 s for up to 3 min.
+        # Railway redeploys on push; the old build stays up until the new one
+        # is healthy, so we compare the git SHA header once Railway exposes it,
+        # or just wait until the server responds without a 5xx.
+        run: |
+          echo "Waiting for deploy to go live..."
+          for i in $(seq 1 12); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 10 "$BASE/api/auth/me" || echo "000")
+            if [ "$status" = "401" ] || [ "$status" = "200" ]; then
+              echo "Server is up (HTTP $status)"
+              break
+            fi
+            echo "Attempt $i: got HTTP $status — waiting 15 s..."
+            sleep 15
+          done
+
+      - name: Landing page loads (200)
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE/")
+          echo "GET / → $status"
+          [ "$status" = "200" ] || (echo "FAIL" && exit 1)
+
+      - name: Auth endpoint reachable (401)
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE/api/auth/me")
+          echo "GET /api/auth/me → $status"
+          [ "$status" = "401" ] || (echo "FAIL — expected 401, got $status" && exit 1)
+
+      - name: Sessions code endpoint registered (401, not 404/500)
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE/api/sessions/code/TEST99")
+          echo "GET /api/sessions/code/TEST99 → $status"
+          [ "$status" = "401" ] || (echo "FAIL — expected 401, got $status" && exit 1)
+
+      - name: Groups endpoint registered (401, not 404/500)
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE/api/groups")
+          echo "GET /api/groups → $status"
+          [ "$status" = "401" ] || (echo "FAIL — expected 401, got $status" && exit 1)
