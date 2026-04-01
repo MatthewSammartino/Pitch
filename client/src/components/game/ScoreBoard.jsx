@@ -1,11 +1,9 @@
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 const SUIT_NAMES   = { h: "Hearts", d: "Diamonds", c: "Clubs", s: "Spades" };
+const TEAM_COLORS  = ["#4fc3a1", "#f0c040", "#e07a5f"];
 
 export default function ScoreBoard({ game, myUserId }) {
   if (!game) return null;
-
-  const teamA = game.seats.filter((s) => s.team === 0).map((s) => s.displayName).join(" & ");
-  const teamB = game.seats.filter((s) => s.team === 1).map((s) => s.displayName).join(" & ");
 
   const statusLabel = () => {
     if (game.status === "BIDDING") {
@@ -37,21 +35,19 @@ export default function ScoreBoard({ game, myUserId }) {
       gap: 10,
       fontSize: 13,
     }}>
-      <div style={{ display: "flex", gap: 24 }}>
-        <div>
-          <span style={{ color: "#4fc3a1" }}>{game.teamNames?.[0] ?? "Team A"}</span>
-          <span style={{ color: "#5a7a5a", marginLeft: 6 }}>{teamA}</span>
-          <span style={{ color: "#f0e8d0", fontWeight: 700, marginLeft: 8, fontSize: 18 }}>
-            {game.teamScores[0]}
-          </span>
-        </div>
-        <div>
-          <span style={{ color: "#f0c040" }}>{game.teamNames?.[1] ?? "Team B"}</span>
-          <span style={{ color: "#5a7a5a", marginLeft: 6 }}>{teamB}</span>
-          <span style={{ color: "#f0e8d0", fontWeight: 700, marginLeft: 8, fontSize: 18 }}>
-            {game.teamScores[1]}
-          </span>
-        </div>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        {(game.teamNames ?? ["A", "B"]).map((name, t) => {
+          const members = game.seats.filter((s) => s.team === t).map((s) => s.displayName).join(" & ");
+          return (
+            <div key={t}>
+              <span style={{ color: TEAM_COLORS[t] }}>{name}</span>
+              <span style={{ color: "#5a7a5a", marginLeft: 6 }}>{members}</span>
+              <span style={{ color: "#f0e8d0", fontWeight: 700, marginLeft: 8, fontSize: 18 }}>
+                {game.teamScores[t]}
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div style={{ color: "#8aab8a", fontStyle: "italic" }}>
         {statusLabel()}

@@ -81,7 +81,7 @@ module.exports = function lobbySocket(nsp) {
       const lobby = GameStore.getLobby(sessionId);
       if (!lobby) return;
       if (lobby.createdBy !== user.id) return;
-      lobby.setTeamNames(teamNames?.[0], teamNames?.[1]);
+      lobby.setTeamNames(teamNames);
       nsp.to(sessionId).emit("lobby:state", lobby.publicState());
     });
 

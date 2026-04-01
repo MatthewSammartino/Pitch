@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useSocketContext } from "../context/SocketContext";
 import Navbar from "../components/layout/Navbar";
 
-const TEAM_COLORS = ["#4fc3a1", "#f0c040"]; // team A = teal, team B = gold
+const TEAM_COLORS = ["#4fc3a1", "#f0c040", "#e07a5f"]; // team A = teal, B = gold, C = coral
 
 const S = {
   page: {
@@ -111,13 +111,14 @@ const S = {
   },
 };
 
-function teamLabel(seatIndex, teamNames) {
-  const t = seatIndex % 2;
-  return teamNames?.[t] ?? (t === 0 ? "A" : "B");
+function teamLabel(seatIndex, teamNames, numTeams) {
+  const t = seatIndex % (numTeams ?? 2);
+  return teamNames?.[t] ?? String.fromCharCode(65 + t);
 }
 
-function teamColor(seatIndex) {
-  return seatIndex % 2 === 0 ? TEAM_COLORS[0] : TEAM_COLORS[1];
+function teamColor(seatIndex, numTeams) {
+  const t = seatIndex % (numTeams ?? 2);
+  return TEAM_COLORS[t] ?? "#8aab8a";
 }
 
 export default function GameLobbyPage() {
@@ -245,41 +246,48 @@ export default function GameLobbyPage() {
         {error && <div style={S.errorBox}>{error}</div>}
 
         {/* Team names (host editable) */}
-        {lobby && (
-          <div style={{ display: "flex", gap: 12, marginBottom: 24, justifyContent: "center" }}>
-            {[0, 1].map((t) => {
-              const color = t === 0 ? "#4fc3a1" : "#f0c040";
-              const name  = lobby.teamNames?.[t] ?? (t === 0 ? "Team A" : "Team B");
-              return (
-                <div key={t} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color, fontSize: 12, whiteSpace: "nowrap" }}>
-                    {t === 0 ? "Seats 1&3" : "Seats 2&4"}
-                  </span>
-                  {isHost ? (
-                    <input
-                      value={name}
-                      onChange={(e) => setTeamName(t, e.target.value)}
-                      maxLength={20}
-                      style={{
-                        background: "transparent",
-                        border: `1px solid ${color}55`,
-                        borderRadius: 8,
-                        color,
-                        fontFamily: "Georgia,serif",
-                        fontSize: 13,
-                        padding: "4px 10px",
-                        width: 120,
-                        outline: "none",
-                      }}
-                    />
-                  ) : (
-                    <span style={{ color, fontWeight: 600, fontSize: 14 }}>{name}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {lobby && (() => {
+          const numTeams = lobby.variant === 6 ? 3 : 2;
+          const seatGroups = {
+            2: ["1&3", "2&4"],
+            3: ["1&4", "2&5", "3&6"],
+          };
+          return (
+            <div style={{ display: "flex", gap: 12, marginBottom: 24, justifyContent: "center", flexWrap: "wrap" }}>
+              {Array.from({ length: numTeams }, (_, t) => {
+                const color = TEAM_COLORS[t];
+                const name  = lobby.teamNames?.[t] ?? String.fromCharCode(65 + t);
+                return (
+                  <div key={t} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color, fontSize: 12, whiteSpace: "nowrap" }}>
+                      Seats {seatGroups[numTeams]?.[t]}
+                    </span>
+                    {isHost ? (
+                      <input
+                        value={name}
+                        onChange={(e) => setTeamName(t, e.target.value)}
+                        maxLength={20}
+                        style={{
+                          background: "transparent",
+                          border: `1px solid ${color}55`,
+                          borderRadius: 8,
+                          color,
+                          fontFamily: "Georgia,serif",
+                          fontSize: 13,
+                          padding: "4px 10px",
+                          width: 100,
+                          outline: "none",
+                        }}
+                      />
+                    ) : (
+                      <span style={{ color, fontWeight: 600, fontSize: 14 }}>{name}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Seats */}
         {lobby && (
@@ -288,7 +296,8 @@ export default function GameLobbyPage() {
               {lobby.seats.map((seat, i) => {
                 const occupied = seat !== null;
                 const isMe     = seat?.userId === user?.id;
-                const tc       = teamColor(i);
+                const numTeams = lobby.variant === 6 ? 3 : 2;
+                const tc       = teamColor(i, numTeams);
 
                 return (
                   <div
@@ -306,7 +315,7 @@ export default function GameLobbyPage() {
                             : "🎴"}
                         </div>
                         <div style={S.seatName}>{isMe ? "You" : seat.displayName}</div>
-                        <div style={S.seatTeam(tc)}>{teamLabel(i, lobby.teamNames)}</div>
+                        <div style={S.seatTeam(tc)}>{teamLabel(i, lobby.teamNames, numTeams)}</div>
                         {isMe && (
                           <button style={S.leaveBtn} onClick={(e) => { e.stopPropagation(); leaveSeat(); }}>
                             Leave
@@ -317,7 +326,7 @@ export default function GameLobbyPage() {
                       <>
                         <div style={{ fontSize: 28, marginBottom: 4, color: "#2a4a2a" }}>♠</div>
                         <div style={{ fontSize: 13, color: "#3a5a3a" }}>Empty</div>
-                        <div style={S.seatTeam(tc)}>{teamLabel(i, lobby.teamNames)}</div>
+                        <div style={S.seatTeam(tc)}>{teamLabel(i, lobby.teamNames, numTeams)}</div>
                         {!iSeated && (
                           <button style={S.sitBtn} onClick={(e) => { e.stopPropagation(); takeSeat(i); }}>
                             Sit Here

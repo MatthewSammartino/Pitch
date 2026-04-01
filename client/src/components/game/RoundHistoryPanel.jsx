@@ -28,8 +28,10 @@ function RoundEntry({ round, teamNames, index }) {
   const [open, setOpen] = useState(false);
   const [showTricks, setShowTricks] = useState(false);
   const { breakdown, bid, bidMade, bidderSeat, teamPointsEarned, teamScores, trumpSuit, tricks } = round;
-  const tc = (t) => t === 0 ? "#4fc3a1" : "#f0c040";
-  const tn = (t) => teamNames?.[t] ?? (t === 0 ? "Team A" : "Team B");
+  const TEAM_COLORS = ["#4fc3a1", "#f0c040", "#e07a5f"];
+  const tc = (t) => TEAM_COLORS[t] ?? "#8aab8a";
+  const tn = (t) => teamNames?.[t] ?? String.fromCharCode(65 + t);
+  const numTeams = teamScores?.length ?? 2;
 
   const scoringPts = [
     breakdown?.high    && { label: "High",     card: breakdown.high.card,    team: breakdown.high.team },
@@ -63,13 +65,12 @@ function RoundEntry({ round, teamNames, index }) {
           </span>
           <span style={{ fontSize: 10, color: "#3a5a3a" }}>{open ? "▾" : "▸"}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
-          <span style={{ fontSize: 11, color: tc(0) }}>
-            {teamPointsEarned[0] >= 0 ? "+" : ""}{teamPointsEarned[0]} → {teamScores[0]}
-          </span>
-          <span style={{ fontSize: 11, color: tc(1) }}>
-            {teamPointsEarned[1] >= 0 ? "+" : ""}{teamPointsEarned[1]} → {teamScores[1]}
-          </span>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, flexWrap: "wrap", gap: 4 }}>
+          {Array.from({ length: numTeams }, (_, t) => (
+            <span key={t} style={{ fontSize: 11, color: tc(t) }}>
+              {teamPointsEarned[t] >= 0 ? "+" : ""}{teamPointsEarned[t]} → {teamScores[t]}
+            </span>
+          ))}
         </div>
       </button>
 
@@ -86,7 +87,7 @@ function RoundEntry({ round, teamNames, index }) {
               <span>{card ? <CardChip card={card} /> : (
                 label === "Game"
                   ? <span style={{ color: "#5a7a5a", fontSize: 11 }}>
-                      {breakdown.gameValues[0]}–{breakdown.gameValues[1]} gpts
+                      {(breakdown.gameValues ?? []).map((v, i) => `${tn(i)}:${v}`).join(" / ")} gpts
                     </span>
                   : null
               )}</span>

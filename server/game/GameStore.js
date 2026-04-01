@@ -14,11 +14,14 @@ class LobbyState {
     this.createdBy  = createdBy;
     this.status     = "waiting";
     this.seats      = Array(variant).fill(null);
-    this.teamNames  = ["A", "B"];
+    this.teamNames  = variant === 6 ? ["A", "B", "C"] : ["A", "B"];
   }
 
-  setTeamNames(nameA, nameB) {
-    this.teamNames = [nameA || "A", nameB || "B"];
+  setTeamNames(names) {
+    const numTeams = this.variant === 6 ? 3 : 2;
+    this.teamNames = Array.from({ length: numTeams }, (_, i) =>
+      (names?.[i]?.trim()) || String.fromCharCode(65 + i)
+    );
     return { ok: true };
   }
 

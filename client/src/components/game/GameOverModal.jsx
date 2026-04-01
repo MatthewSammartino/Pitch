@@ -1,12 +1,17 @@
 import { useNavigate } from "react-router-dom";
 
-export default function GameOverModal({ winner, teamScores, seats }) {
+const TEAM_COLORS = ["#4fc3a1", "#f0c040", "#e07a5f"];
+
+export default function GameOverModal({ winner, teamScores, seats, teamNames }) {
   const navigate = useNavigate();
 
-  const teamA = seats?.filter((s) => s.team === 0).map((s) => s.displayName).join(" & ");
-  const teamB = seats?.filter((s) => s.team === 1).map((s) => s.displayName).join(" & ");
-  const winnerName = winner === 0 ? teamA : teamB;
-  const winnerColor = winner === 0 ? "#4fc3a1" : "#f0c040";
+  const numTeams = teamScores?.length ?? 2;
+  const tc = (t) => TEAM_COLORS[t] ?? "#8aab8a";
+  const tn = (t) => teamNames?.[t] ?? String.fromCharCode(65 + t);
+  const members = (t) => seats?.filter((s) => s.team === t).map((s) => s.displayName).join(" & ") ?? "";
+
+  const winnerColor = tc(winner ?? 0);
+  const winnerName  = tn(winner ?? 0);
 
   return (
     <div style={{
@@ -17,7 +22,7 @@ export default function GameOverModal({ winner, teamScores, seats }) {
     }}>
       <div style={{
         background: "#0d2b0d", border: `2px solid ${winnerColor}`,
-        borderRadius: 16, padding: "36px 40px", maxWidth: 380, width: "100%",
+        borderRadius: 16, padding: "36px 40px", maxWidth: 420, width: "100%",
         textAlign: "center", fontFamily: "Georgia,serif", color: "#e8dfc8",
       }}>
         <div style={{ fontSize: 52, marginBottom: 12 }}>🏆</div>
@@ -27,18 +32,21 @@ export default function GameOverModal({ winner, teamScores, seats }) {
         }}>
           {winnerName} wins!
         </h2>
-        <div style={{ display: "flex", justifyContent: "center", gap: 32, margin: "20px 0" }}>
-          <div>
-            <div style={{ color: "#4fc3a1", fontSize: 13 }}>Team A</div>
-            <div style={{ color: "#f0e8d0", fontWeight: 700, fontSize: 28 }}>{teamScores?.[0]}</div>
-            <div style={{ color: "#5a7a5a", fontSize: 12 }}>{teamA}</div>
-          </div>
-          <div>
-            <div style={{ color: "#f0c040", fontSize: 13 }}>Team B</div>
-            <div style={{ color: "#f0e8d0", fontWeight: 700, fontSize: 28 }}>{teamScores?.[1]}</div>
-            <div style={{ color: "#5a7a5a", fontSize: 12 }}>{teamB}</div>
-          </div>
+
+        <div style={{
+          display: "flex", justifyContent: "center",
+          gap: numTeams === 3 ? 16 : 32,
+          margin: "20px 0", flexWrap: "wrap",
+        }}>
+          {Array.from({ length: numTeams }, (_, t) => (
+            <div key={t}>
+              <div style={{ color: tc(t), fontSize: 13 }}>{tn(t)}</div>
+              <div style={{ color: "#f0e8d0", fontWeight: 700, fontSize: 28 }}>{teamScores?.[t]}</div>
+              <div style={{ color: "#5a7a5a", fontSize: 12 }}>{members(t)}</div>
+            </div>
+          ))}
         </div>
+
         <button
           onClick={() => navigate("/dashboard")}
           style={{

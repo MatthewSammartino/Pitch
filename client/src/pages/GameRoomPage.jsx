@@ -124,11 +124,20 @@ export default function GameRoomPage() {
   const mySeat = game?.seats?.find((s) => s.userId === user?.id);
   const myTeam = mySeat?.team;
 
-  // Compass positions: clockwise from me → west (left), north (across), east (right)
+  // Compass positions: clockwise from me
   function getPositionedSeats() {
     if (!game || !mySeat) return {};
     const idx = mySeat.seatIndex;
     const v   = game.variant;
+    if (v === 6) {
+      return {
+        west:  game.seats.find((s) => s.seatIndex === (idx + 1) % v),
+        nw:    game.seats.find((s) => s.seatIndex === (idx + 2) % v),
+        north: game.seats.find((s) => s.seatIndex === (idx + 3) % v), // partner
+        ne:    game.seats.find((s) => s.seatIndex === (idx + 4) % v),
+        east:  game.seats.find((s) => s.seatIndex === (idx + 5) % v),
+      };
+    }
     return {
       north: game.seats.find((s) => s.seatIndex === (idx + 2) % v),
       west:  game.seats.find((s) => s.seatIndex === (idx + 1) % v),
@@ -222,7 +231,9 @@ export default function GameRoomPage() {
           {/* Compass table layout */}
           <div style={{
             display: "grid",
-            gridTemplateAreas: `". north ." "west table east" ". south ."`,
+            gridTemplateAreas: game.variant === 6
+              ? `"nw north ne" "west table east" ". south ."`
+              : `". north ." "west table east" ". south ."`,
             gridTemplateColumns: "110px 1fr 110px",
             gridTemplateRows: "auto auto auto",
             gap: 10,
@@ -230,6 +241,16 @@ export default function GameRoomPage() {
             justifyItems: "center",
             marginBottom: 10,
           }}>
+            {game.variant === 6 && (
+              <>
+                <div style={{ gridArea: "nw" }}>
+                  <OpponentBox seat={positioned.nw} compact />
+                </div>
+                <div style={{ gridArea: "ne" }}>
+                  <OpponentBox seat={positioned.ne} compact />
+                </div>
+              </>
+            )}
             <div style={{ gridArea: "north" }}>
               <OpponentBox seat={positioned.north} />
             </div>
@@ -255,7 +276,7 @@ export default function GameRoomPage() {
             </div>
             <div style={{ gridArea: "south", textAlign: "center", fontSize: 12, color: "#5a7a5a" }}>
               {mySeat && <>
-                You · Team {mySeat.team === 0 ? "A" : "B"}
+                You · {game.teamNames?.[mySeat.team] ?? `Team ${mySeat.team}`}
                 {game.dealerSeat === mySeat.seatIndex && " · Dealer"}
               </>}
             </div>
@@ -332,6 +353,7 @@ export default function GameRoomPage() {
           winner={gameOver.winner}
           teamScores={gameOver.teamScores}
           seats={game?.seats}
+          teamNames={gameOver.teamNames ?? game?.teamNames}
         />
       )}
     </div>

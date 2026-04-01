@@ -1,6 +1,6 @@
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 const SUIT_COLORS  = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
-const TEAM_COLORS  = ["#4fc3a1", "#f0c040"];
+const TEAM_COLORS  = ["#4fc3a1", "#f0c040", "#e07a5f"];
 
 function parseCard(cardId) {
   if (!cardId) return { rank: "", suit: "s" };
@@ -80,12 +80,14 @@ export default function LiveRoundPanel({ liveRoundScoring, teamNames, trumpSuit 
       <div style={{
         borderTop: "1px solid #1e4a1e",
         marginTop: 6, paddingTop: 6,
-        display: "flex", alignItems: "center", gap: 4,
+        display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6,
       }}>
         <span style={{ color: "#3a5a3a", fontSize: 11, width: 54, flexShrink: 0 }}>Game</span>
-        <span style={{ color: TEAM_COLORS[0], fontSize: 11 }}>{tl(0)}: {gameValues?.[0] ?? 0}</span>
-        <span style={{ color: "#3a5a3a", fontSize: 10 }}> vs </span>
-        <span style={{ color: TEAM_COLORS[1], fontSize: 11 }}>{tl(1)}: {gameValues?.[1] ?? 0}</span>
+        {(gameValues ?? []).map((v, t) => (
+          <span key={t} style={{ color: TEAM_COLORS[t], fontSize: 11 }}>
+            {tl(t)}: {v}
+          </span>
+        ))}
       </div>
     </div>
   );

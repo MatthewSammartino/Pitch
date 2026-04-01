@@ -158,7 +158,7 @@ module.exports = function gameSocket(nsp) {
     nsp.to(sessionId).emit("game:round_over", roundSummary);
 
     if (gameOver) {
-      nsp.to(sessionId).emit("game:game_over", { winner, teamScores: game.teamScores });
+      nsp.to(sessionId).emit("game:game_over", { winner, teamScores: game.teamScores, teamNames: game.teamNames });
       try { await finalizeSession(sessionId, game.teamScores); } catch (e) { /* ignore */ }
       GameStore.deleteGame(sessionId);
     } else {

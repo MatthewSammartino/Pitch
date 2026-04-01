@@ -3,8 +3,7 @@ const {
   getEffectiveSuit, getOffJackSuit, getTrumpPriority, parseCard, CARD_POINT_VALUES,
 } = require("./deckConstants");
 
-const TARGET_SCORE   = 15;
-const CARDS_PER_HAND = 6; // 4-player; Phase 5 will adjust for 6-player
+const TARGET_SCORE = 15;
 
 class GameStateMachine {
   /**
@@ -12,19 +11,21 @@ class GameStateMachine {
    * @param {number} variant  - 4 or 6
    * @param {Array}  seats    - [{ seatIndex, userId, displayName, avatarUrl }]
    */
-  constructor(sessionId, variant, seats, teamNames = ["Team A", "Team B"]) {
-    this.sessionId   = sessionId;
-    this.variant     = variant;
-    this.targetScore = TARGET_SCORE;
-    this.teamNames   = teamNames;
-    this.status      = "BIDDING"; // first action after lobby start
+  constructor(sessionId, variant, seats, teamNames) {
+    this.sessionId    = sessionId;
+    this.variant      = variant;
+    this.numTeams     = variant === 6 ? 3 : 2;
+    this.cardsPerHand = 6; // 6 cards each regardless of variant (9 exceeds 52-card deck for 6p)
+    this.targetScore  = TARGET_SCORE;
+    this.teamNames    = teamNames ?? (variant === 6 ? ["A", "B", "C"] : ["A", "B"]);
+    this.status       = "BIDDING";
 
-    // Assign teams: even seatIndex → team 0, odd → team 1
-    this.seats = seats.map((s) => ({ ...s, team: s.seatIndex % 2 }));
+    // Assign teams: seatIndex % numTeams (4p: 0&2=T0, 1&3=T1; 6p: 0&3=T0, 1&4=T1, 2&5=T2)
+    this.seats = seats.map((s) => ({ ...s, team: s.seatIndex % this.numTeams }));
 
     // Private hands: userId → [cardId]
     this.hands = {};
-    const dealt = dealHands(variant, CARDS_PER_HAND);
+    const dealt = dealHands(variant, this.cardsPerHand);
     for (const seat of this.seats) this.hands[seat.userId] = dealt[seat.seatIndex];
 
     // Bidding — dealer = seat 0, bidding starts at seat 1
@@ -44,7 +45,7 @@ class GameStateMachine {
     this.nextLeaderSeat = -1;
 
     // Scores
-    this.teamScores  = [0, 0];
+    this.teamScores  = Array(this.numTeams).fill(0);
     this.roundNumber = 1;
     this.lastRoundSummary = null;
 
@@ -218,7 +219,7 @@ class GameStateMachine {
       this.currentTrick   = [];
       this.nextLeaderSeat = winnerSeat;
 
-      if (this.trickHistory.length === CARDS_PER_HAND) {
+      if (this.trickHistory.length === this.cardsPerHand) {
         // All tricks played — score the round
         return { ok: true, trickComplete: true, winnerSeat, ...this._scoreRound() };
       }
@@ -243,7 +244,8 @@ class GameStateMachine {
     for (const s of this.seats) seatTeam[s.seatIndex] = s.team;
 
     const trumpsPlayed = [];
-    const captured = { 0: [], 1: [] };
+    const captured = {};
+    for (let t = 0; t < this.numTeams; t++) captured[t] = [];
 
     // Completed tricks
     for (const trick of this.trickHistory) {
@@ -274,14 +276,14 @@ class GameStateMachine {
       );
     }
 
-    for (let t = 0; t <= 1; t++) {
+    for (let t = 0; t < this.numTeams; t++) {
       if (captured[t].includes(jackId))    result.jack    = { card: jackId,    team: t };
       if (captured[t].includes(offJackId)) result.offJack = { card: offJackId, team: t };
     }
 
     // Game pts from completed tricks only
-    const gameVals = [0, 0];
-    for (let t = 0; t <= 1; t++) {
+    const gameVals = Array(this.numTeams).fill(0);
+    for (let t = 0; t < this.numTeams; t++) {
       for (const card of captured[t]) {
         const { rank, suit } = parseCard(card);
         const isOffJack = rank === "J" && suit === offSuit;
@@ -299,43 +301,37 @@ class GameStateMachine {
     const { teamPoints, breakdown } = scoreRound(this.trickHistory, this.trumpSuit, this.seats);
 
     // Bid failure: bidder's team loses the bid amount instead of keeping earned points
-    const bidderTeam = this.getSeatByUser(
-      this.getUserBySeat(this.highBidderSeat)?.userId
-    )?.team ?? 0;
-
     const bidderActualTeam = this.seats.find((s) => s.seatIndex === this.highBidderSeat)?.team ?? 0;
-
     if (teamPoints[bidderActualTeam] < this.currentBid) {
       teamPoints[bidderActualTeam] = -this.currentBid;
     }
 
-    this.teamScores[0] += teamPoints[0];
-    this.teamScores[1] += teamPoints[1];
+    for (let t = 0; t < this.numTeams; t++) {
+      this.teamScores[t] += teamPoints[t];
+    }
 
     const summary = {
-      roundNumber:    this.roundNumber,
-      bidderSeat:     this.highBidderSeat,
-      bid:            this.currentBid,
-      bidMade:        teamPoints[bidderActualTeam] > 0,
+      roundNumber:      this.roundNumber,
+      bidderSeat:       this.highBidderSeat,
+      bid:              this.currentBid,
+      bidMade:          teamPoints[bidderActualTeam] > 0,
       teamPointsEarned: teamPoints,
-      teamScores:     [...this.teamScores],
+      teamScores:       [...this.teamScores],
       breakdown,
-      trumpSuit:      this.trumpSuit,
-      tricks:         this.trickHistory.map((t) => ({ ...t })),
+      trumpSuit:        this.trumpSuit,
+      tricks:           this.trickHistory.map((t) => ({ ...t })),
     };
     this.lastRoundSummary = summary;
 
-    // Check game over (both teams reaching target same round: higher score wins)
-    const aWon = this.teamScores[0] >= this.targetScore;
-    const bWon = this.teamScores[1] >= this.targetScore;
-
-    if (aWon || bWon) {
+    // Check game over — if any team reaches target, highest score wins
+    const anyWon = this.teamScores.some((s) => s >= this.targetScore);
+    if (anyWon) {
       this.status = "GAME_OVER";
-      const winner = this.teamScores[0] >= this.teamScores[1] ? 0 : 1;
+      const maxScore = Math.max(...this.teamScores);
+      const winner   = this.teamScores.indexOf(maxScore);
       return { roundSummary: summary, gameOver: true, winner };
     }
 
-    // Start next round
     this._startNextRound();
     return { roundSummary: summary, gameOver: false };
   }
@@ -355,7 +351,7 @@ class GameStateMachine {
     this.nextLeaderSeat = -1;
     this.status         = "BIDDING";
 
-    const dealt = dealHands(this.variant, CARDS_PER_HAND);
+    const dealt = dealHands(this.variant, this.cardsPerHand);
     for (const seat of this.seats) this.hands[seat.userId] = dealt[seat.seatIndex];
   }
 }

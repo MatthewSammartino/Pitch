@@ -1,9 +1,9 @@
 import { useState } from "react";
 
-const SUIT_SYMBOLS   = { h: "♥", d: "♦", c: "♣", s: "♠" };
-const SUIT_COLORS    = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
-const CARD_PTS       = { A: 4, K: 3, Q: 2, J: 1, "10": 10 };
-const POINT_LABELS   = { high: "High", low: "Low", jack: "Jack", offJack: "Off-Jack", game: "Game" };
+const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
+const SUIT_COLORS  = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
+const TEAM_COLORS  = ["#4fc3a1", "#f0c040", "#e07a5f"];
+const CARD_PTS     = { A: 4, K: 3, Q: 2, J: 1, "10": 10 };
 
 function parseCard(cardId) {
   if (!cardId) return { rank: "", suit: "s" };
@@ -41,8 +41,9 @@ export default function RoundSummaryModal({ summary, seats, teamNames, onClose }
 
   const { breakdown, bidderSeat, bid, bidMade, teamPointsEarned, teamScores, trumpSuit, tricks } = summary;
   const bidder = seatName[bidderSeat] || "?";
-  const tc = (t) => t === 0 ? "#4fc3a1" : "#f0c040";
-  const tl = (t) => teamNames?.[t] ?? (t === 0 ? "Team A" : "Team B");
+  const numTeams = teamScores?.length ?? 2;
+  const tc = (t) => TEAM_COLORS[t] ?? "#8aab8a";
+  const tl = (t) => teamNames?.[t] ?? String.fromCharCode(65 + t);
 
   const scoringRows = [
     breakdown?.high    && { key: "high",    label: "High",     card: breakdown.high.card,    team: breakdown.high.team },
@@ -81,10 +82,10 @@ export default function RoundSummaryModal({ summary, seats, teamNames, onClose }
 
         {/* Team scores side-by-side */}
         <div style={{
-          display: "grid", gridTemplateColumns: "1fr 1fr",
+          display: "grid", gridTemplateColumns: `repeat(${numTeams}, 1fr)`,
           gap: 10, marginBottom: 20,
         }}>
-          {[0, 1].map((t) => (
+          {Array.from({ length: numTeams }, (_, t) => (
             <div key={t} style={{
               background: "rgba(255,255,255,.03)",
               border: `1px solid ${tc(t)}33`,
@@ -110,14 +111,18 @@ export default function RoundSummaryModal({ summary, seats, teamNames, onClose }
             SCORING POINTS
           </div>
           <div style={{
-            display: "grid", gridTemplateColumns: "80px 1fr 70px 70px",
+            display: "grid",
+            gridTemplateColumns: `80px 1fr ${Array(numTeams).fill("50px").join(" ")}`,
             gap: "2px 0", fontSize: 13,
           }}>
             {/* Header */}
             <div style={{ color: "#3a5a3a", fontSize: 11, paddingBottom: 4 }}>Point</div>
             <div style={{ color: "#3a5a3a", fontSize: 11, paddingBottom: 4 }}>Card</div>
-            <div style={{ color: tc(0), fontSize: 11, textAlign: "center", paddingBottom: 4 }}>Team A</div>
-            <div style={{ color: tc(1), fontSize: 11, textAlign: "center", paddingBottom: 4 }}>Team B</div>
+            {Array.from({ length: numTeams }, (_, t) => (
+              <div key={t} style={{ color: tc(t), fontSize: 11, textAlign: "center", paddingBottom: 4 }}>
+                {tl(t)}
+              </div>
+            ))}
             {/* Divider */}
             <div style={{ gridColumn: "1/-1", borderTop: "1px solid #1e4a1e", marginBottom: 4 }} />
 
@@ -127,16 +132,17 @@ export default function RoundSummaryModal({ summary, seats, teamNames, onClose }
                 <div key={key + "c"} style={{ padding: "4px 0" }}>
                   {card ? <CardChip card={card} /> : (
                     <span style={{ color: "#5a7a5a", fontSize: 12 }}>
-                      {key === "game" ? `${breakdown.gameValues[0]} vs ${breakdown.gameValues[1]} game pts` : "—"}
+                      {key === "game"
+                        ? (breakdown.gameValues ?? []).map((v, i) => `${tl(i)}: ${v}`).join(" / ") + " game pts"
+                        : "—"}
                     </span>
                   )}
                 </div>
-                <div key={key + "a"} style={{ textAlign: "center", padding: "4px 0", fontSize: 16 }}>
-                  {team === 0 ? <span style={{ color: tc(0) }}>●</span> : ""}
-                </div>
-                <div key={key + "b"} style={{ textAlign: "center", padding: "4px 0", fontSize: 16 }}>
-                  {team === 1 ? <span style={{ color: tc(1) }}>●</span> : ""}
-                </div>
+                {Array.from({ length: numTeams }, (_, t) => (
+                  <div key={key + t} style={{ textAlign: "center", padding: "4px 0", fontSize: 16 }}>
+                    {team === t ? <span style={{ color: tc(t) }}>●</span> : ""}
+                  </div>
+                ))}
               </>
             ))}
           </div>

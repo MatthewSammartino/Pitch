@@ -71,12 +71,12 @@ function determineTrickWinner(trick, trumpSuit) {
 }
 
 /**
- * Score a completed round.
+ * Score a completed round. Supports any number of teams (2 for 4-player, 3 for 6-player).
  *
  * @param {Array}  trickHistory - [{ plays: [{seatIndex,card}], winnerSeat }]
  * @param {string} trumpSuit
- * @param {Array}  seats        - [{ seatIndex, team (0|1) }]
- * @returns {{ teamPoints: [number,number], breakdown: object }}
+ * @param {Array}  seats        - [{ seatIndex, team }]
+ * @returns {{ teamPoints: number[], breakdown: object }}
  */
 function scoreRound(trickHistory, trumpSuit, seats) {
   const offSuit   = getOffJackSuit(trumpSuit);
@@ -85,10 +85,12 @@ function scoreRound(trickHistory, trumpSuit, seats) {
 
   const seatTeam = {};
   for (const s of seats) seatTeam[s.seatIndex] = s.team;
+  const numTeams = Math.max(...Object.values(seatTeam)) + 1;
 
-  // Collect: all trump cards played (with who played them) + all cards captured per team
-  const trumpsPlayed = []; // { card, seatIndex, team }
-  const captured = { 0: [], 1: [] };
+  // Collect: all trump cards played + all cards captured per team
+  const trumpsPlayed = [];
+  const captured = {};
+  for (let t = 0; t < numTeams; t++) captured[t] = [];
 
   for (const trick of trickHistory) {
     const winnerTeam = seatTeam[trick.winnerSeat];
@@ -104,7 +106,7 @@ function scoreRound(trickHistory, trumpSuit, seats) {
     }
   }
 
-  const points = [0, 0];
+  const points = Array(numTeams).fill(0);
   const breakdown = {};
 
   // High (team that played highest trump)
@@ -126,7 +128,7 @@ function scoreRound(trickHistory, trumpSuit, seats) {
   }
 
   // Jack (team that captured jack of trump)
-  for (let t = 0; t <= 1; t++) {
+  for (let t = 0; t < numTeams; t++) {
     if (captured[t].includes(jackId)) {
       points[t]++;
       breakdown.jack = { card: jackId, team: t };
@@ -135,7 +137,7 @@ function scoreRound(trickHistory, trumpSuit, seats) {
   }
 
   // Off-jack (team that captured jack of off-suit)
-  for (let t = 0; t <= 1; t++) {
+  for (let t = 0; t < numTeams; t++) {
     if (captured[t].includes(offJackId)) {
       points[t]++;
       breakdown.offJack = { card: offJackId, team: t };
@@ -144,8 +146,8 @@ function scoreRound(trickHistory, trumpSuit, seats) {
   }
 
   // Game (team with most card-point values; ties = nobody gets the point)
-  const gameVals = [0, 0];
-  for (let t = 0; t <= 1; t++) {
+  const gameVals = Array(numTeams).fill(0);
+  for (let t = 0; t < numTeams; t++) {
     for (const card of captured[t]) {
       const { rank, suit } = parseCard(card);
       const isOffJack = rank === "J" && suit === offSuit;
@@ -153,8 +155,10 @@ function scoreRound(trickHistory, trumpSuit, seats) {
     }
   }
   breakdown.gameValues = gameVals;
-  if (gameVals[0] !== gameVals[1]) {
-    const gw = gameVals[0] > gameVals[1] ? 0 : 1;
+  const maxGame = Math.max(...gameVals);
+  const gameWinnerCount = gameVals.filter((v) => v === maxGame).length;
+  if (gameWinnerCount === 1) {
+    const gw = gameVals.indexOf(maxGame);
     points[gw]++;
     breakdown.game = { team: gw };
   }
