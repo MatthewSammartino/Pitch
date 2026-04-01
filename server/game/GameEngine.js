@@ -30,16 +30,21 @@ function dealHands(playerCount, cardsEach = 6) {
 
 /**
  * Return which cards in `hand` are legal to play given the current trick state.
+ * - If you have the led suit: must follow led suit (may also trump voluntarily)
+ * - If you don't have the led suit: play anything
  */
 function getValidCards(hand, trick, trumpSuit) {
   if (trick.length === 0) return [...hand]; // lead anything
   const ledSuit = getEffectiveSuit(trick[0].card, trumpSuit);
-  // You may always play the led suit OR trump — if you have neither, play anything
-  const valid = hand.filter((c) => {
-    const eff = getEffectiveSuit(c, trumpSuit);
-    return eff === ledSuit || eff === trumpSuit;
-  });
-  return valid.length > 0 ? valid : [...hand];
+  const hasLedSuit = hand.some((c) => getEffectiveSuit(c, trumpSuit) === ledSuit);
+  if (hasLedSuit) {
+    // Must follow led suit; may also trump voluntarily
+    return hand.filter((c) => {
+      const eff = getEffectiveSuit(c, trumpSuit);
+      return eff === ledSuit || eff === trumpSuit;
+    });
+  }
+  return [...hand]; // void in led suit — play anything
 }
 
 /**
