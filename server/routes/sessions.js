@@ -6,6 +6,22 @@ const authenticate = require("../middleware/authenticate");
 const router = express.Router();
 router.use(authenticate);
 
+// ── Room code helpers ─────────────────────────────────────────────────────
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous O/0/I/1
+function randomCode() {
+  let c = "";
+  for (let i = 0; i < 6; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  return c;
+}
+async function generateUniqueCode() {
+  for (let i = 0; i < 20; i++) {
+    const code = randomCode();
+    const { rows } = await pool.query("SELECT 1 FROM game_sessions WHERE short_code = $1", [code]);
+    if (!rows.length) return code;
+  }
+  throw new Error("Could not generate unique room code");
+}
+
 // POST /api/sessions — create a new game session (lobby)
 // Body: { variant, groupSlug? }
 // Any authenticated user can create a game; group association is optional.
@@ -26,14 +42,15 @@ router.post("/", async (req, res) => {
       if (rows.length) { groupId = rows[0].id; groupSlugOut = rows[0].slug; }
     }
 
+    const shortCode = await generateUniqueCode();
     const { rows } = await pool.query(
-      `INSERT INTO game_sessions (group_id, variant, status, created_by)
-       VALUES ($1, $2, 'waiting', $3) RETURNING *`,
-      [groupId, v, req.user.id]
+      `INSERT INTO game_sessions (group_id, variant, status, created_by, short_code)
+       VALUES ($1, $2, 'waiting', $3, $4) RETURNING *`,
+      [groupId, v, req.user.id, shortCode]
     );
     const session = rows[0];
 
-    GameStore.createLobby(session.id, groupId, v, req.user.id);
+    GameStore.createLobby(session.id, groupId, v, req.user.id, shortCode);
 
     res.status(201).json({ ...session, groupSlug: groupSlugOut });
   } catch (err) {
@@ -83,6 +100,21 @@ router.get("/group/:slug", async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error("GET /sessions/group/:slug error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/sessions/code/:code — look up session by room code
+router.get("/code/:code", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, status, variant FROM game_sessions WHERE short_code = $1",
+      [req.params.code.toUpperCase()]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Room not found" });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("GET /sessions/code/:code error:", err.message);
     res.status(500).json({ error: "Server error" });
   }
 });

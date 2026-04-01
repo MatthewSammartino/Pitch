@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { useSocketContext } from "../context/SocketContext";
@@ -126,12 +126,15 @@ export default function GameLobbyPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { getSocket, disconnect } = useSocketContext();
+  const [searchParams] = useSearchParams();
+  const isSolo = searchParams.get("solo") === "true";
 
   const [lobby, setLobby] = useState(null);
   const [error, setError] = useState("");
   const [connStatus, setConnStatus] = useState("connecting"); // connecting | connected | failed
   const [copied, setCopied] = useState(false);
   const socketRef = useRef(null);
+  const soloStartedRef = useRef(false);
 
   const lobbyUrl = `${window.location.origin}/lobby/${sessionId}`;
 
@@ -213,6 +216,14 @@ export default function GameLobbyPage() {
   const mySeatIdx = lobby?.seats?.findIndex((s) => s?.userId === user?.id);
   const iSeated   = mySeatIdx >= 0;
 
+  // Solo mode: once seated, auto-fill bots and start
+  useEffect(() => {
+    if (!isSolo || !iSeated || soloStartedRef.current || !socketRef.current) return;
+    soloStartedRef.current = true;
+    socketRef.current.emit("lobby:fill_bots", { sessionId });
+    setTimeout(() => socketRef.current?.emit("lobby:start_game", { sessionId }), 400);
+  }, [isSolo, iSeated, sessionId]);
+
   return (
     <div style={S.page}>
       <Navbar />
@@ -226,6 +237,22 @@ export default function GameLobbyPage() {
             : connStatus === "failed" ? "Connection failed — try refreshing."
             : "Connecting to lobby…"}
         </p>
+
+        {/* Room code */}
+        {lobby?.shortCode && (
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: "#3a5a3a", letterSpacing: 2, marginBottom: 6 }}>ROOM CODE</div>
+            <div style={{
+              fontSize: 36, fontWeight: 700, letterSpacing: 8,
+              color: "#f0c040", fontFamily: "Georgia,serif",
+            }}>
+              {lobby.shortCode}
+            </div>
+            <div style={{ fontSize: 12, color: "#3a5a3a", marginTop: 4 }}>
+              Share this code so friends can join from the dashboard
+            </div>
+          </div>
+        )}
 
         {/* Invite link */}
         <div style={S.copyBox}>

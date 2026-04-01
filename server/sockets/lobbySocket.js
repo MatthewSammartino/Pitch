@@ -44,7 +44,7 @@ module.exports = function lobbySocket(nsp) {
             });
           }
           const s = rows[0];
-          lobby = GameStore.createLobby(s.id, s.group_id, s.variant, s.created_by);
+          lobby = GameStore.createLobby(s.id, s.group_id, s.variant, s.created_by, s.short_code);
           socket.join(sessionId);
           socket.emit("lobby:state", lobby.publicState());
         }).catch(() => socket.emit("lobby:error", { message: "Failed to load lobby." }));

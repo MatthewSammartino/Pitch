@@ -1,0 +1,1 @@
+ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS short_code VARCHAR(6) UNIQUE;

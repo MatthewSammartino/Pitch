@@ -1,13 +1,10 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import Navbar from "../components/layout/Navbar";
 
 const S = {
   page: {
-    minHeight: "100vh",
-    background: "linear-gradient(160deg,#071a07 0%,#0d2b0d 40%,#091a09 100%)",
-    color: "#e8dfc8",
-    fontFamily: "'Georgia',serif",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -80,7 +77,9 @@ export default function LandingPage() {
   if (loading) return null;
 
   return (
-    <div style={S.page}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#071a07 0%,#0d2b0d 40%,#091a09 100%)", color: "#e8dfc8", fontFamily: "'Georgia',serif" }}>
+      <Navbar />
+      <div style={S.page}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>🃏</div>
       <h1 style={S.title}>Pitch</h1>
       <p style={S.subtitle}>
@@ -111,6 +110,7 @@ export default function LandingPage() {
           </div>
         ))}
       </div>
+    </div>
     </div>
   );
 }
