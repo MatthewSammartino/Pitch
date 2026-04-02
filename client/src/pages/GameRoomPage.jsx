@@ -29,6 +29,8 @@ export default function GameRoomPage() {
   const [gameOver, setGameOver]       = useState(null);      // { winner, teamScores }
   const [error, setError]             = useState("");
   const [connStatus, setConnStatus]   = useState("connecting");
+  const [afkVote, setAfkVote]         = useState(null); // { targetUserId, displayName, totalVoters, approvals, denials }
+  const [afkResult, setAfkResult]     = useState(null); // { approved, displayName }
 
   const socketRef = useRef(null);
 
@@ -91,6 +93,21 @@ export default function GameRoomPage() {
       setTimeout(() => setError(""), 4000);
     });
 
+    socket.on("game:afk_vote", (info) => {
+      setAfkVote({ ...info, approvals: 0, denials: 0 });
+      setAfkResult(null);
+    });
+
+    socket.on("game:afk_vote_update", (info) => {
+      setAfkVote((prev) => prev ? { ...prev, approvals: info.approvals, denials: info.denials } : prev);
+    });
+
+    socket.on("game:afk_vote_result", ({ approved, displayName }) => {
+      setAfkVote(null);
+      setAfkResult({ approved, displayName });
+      setTimeout(() => setAfkResult(null), 4000);
+    });
+
     return () => {
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
@@ -100,6 +117,9 @@ export default function GameRoomPage() {
       socket.off("game:round_over");
       socket.off("game:game_over");
       socket.off("game:error");
+      socket.off("game:afk_vote");
+      socket.off("game:afk_vote_update");
+      socket.off("game:afk_vote_result");
     };
   }, [sessionId, getSocket, user]);
 
@@ -117,6 +137,10 @@ export default function GameRoomPage() {
     setValidCards([]);
     setMyTurn(null);
     socketRef.current?.emit("game:play_card", { sessionId, card });
+  }
+
+  function castAfkVote(approve) {
+    socketRef.current?.emit("game:afk_vote_cast", { sessionId, approve });
   }
 
   // ── Layout helpers ──────────────────────────────────────────────────────
@@ -208,6 +232,64 @@ export default function GameRoomPage() {
           padding: "8px 20px", color: "#e05c5c", fontSize: 13, textAlign: "center",
         }}>
           {error}
+        </div>
+      )}
+
+      {/* AFK vote banner */}
+      {afkVote && (
+        <div style={{
+          background: "rgba(240,192,64,.08)", border: "1px solid #4a3a10",
+          padding: "10px 20px", display: "flex", alignItems: "center",
+          justifyContent: "center", gap: 16, flexWrap: "wrap",
+        }}>
+          <span style={{ color: "#f0c040", fontSize: 13 }}>
+            {afkVote.targetUserId === user?.id
+              ? "⏳ You appear to be AFK — other players are voting to replace you with a bot."
+              : `⏳ ${afkVote.displayName} appears AFK. Vote to replace with a bot?`}
+          </span>
+          {afkVote.approvals + afkVote.denials > 0 && (
+            <span style={{ color: "#5a7a5a", fontSize: 12 }}>
+              {afkVote.approvals} approve · {afkVote.denials} deny
+            </span>
+          )}
+          {afkVote.targetUserId !== user?.id && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => castAfkVote(true)}
+                style={{
+                  padding: "5px 14px", borderRadius: 10, border: "1px solid #4fc3a1",
+                  background: "transparent", color: "#4fc3a1",
+                  fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
+                }}
+              >
+                Replace
+              </button>
+              <button
+                onClick={() => castAfkVote(false)}
+                style={{
+                  padding: "5px 14px", borderRadius: 10, border: "1px solid #3a5a3a",
+                  background: "transparent", color: "#5a7a5a",
+                  fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
+                }}
+              >
+                Keep Waiting
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AFK result notification */}
+      {afkResult && (
+        <div style={{
+          background: afkResult.approved ? "rgba(79,195,161,.1)" : "rgba(90,90,90,.1)",
+          border: `1px solid ${afkResult.approved ? "#2a5c4a" : "#3a3a3a"}`,
+          padding: "8px 20px", color: afkResult.approved ? "#4fc3a1" : "#5a7a5a",
+          fontSize: 13, textAlign: "center",
+        }}>
+          {afkResult.approved
+            ? `${afkResult.displayName} was replaced by a bot.`
+            : `Vote to replace ${afkResult.displayName} was cancelled.`}
         </div>
       )}
 

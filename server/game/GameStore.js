@@ -46,6 +46,17 @@ class LobbyState {
     return { ok: true };
   }
 
+  kickSeat(seatIndex, requestorUserId) {
+    if (requestorUserId !== this.createdBy) return { error: "Only the host can kick players." };
+    if (seatIndex < 0 || seatIndex >= this.seats.length) return { error: "Invalid seat." };
+    const seat = this.seats[seatIndex];
+    if (!seat) return { error: "Seat is already empty." };
+    if (seat.userId === requestorUserId) return { error: "You cannot kick yourself." };
+    const kicked = { ...seat };
+    this.seats[seatIndex] = null;
+    return { ok: true, kicked };
+  }
+
   filledCount() { return this.seats.filter(Boolean).length; }
   isFull()      { return this.filledCount() === this.variant; }
 

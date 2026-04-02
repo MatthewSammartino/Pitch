@@ -171,6 +171,15 @@ export default function GameLobbyPage() {
       setTimeout(() => setError(""), 4000);
     });
 
+    socket.on("lobby:player_kicked", ({ userId: kickedId, displayName }) => {
+      if (kickedId === user?.id) {
+        setError("You were removed from the lobby by the host.");
+      } else {
+        setError(`${displayName} was removed by the host.`);
+        setTimeout(() => setError(""), 3000);
+      }
+    });
+
     return () => {
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
@@ -178,6 +187,7 @@ export default function GameLobbyPage() {
       socket.off("lobby:started",         goToGame);
       socket.off("lobby:already_started", goToGame);
       socket.off("lobby:error");
+      socket.off("lobby:player_kicked");
     };
   }, [sessionId, getSocket, navigate]);
 
@@ -196,6 +206,10 @@ export default function GameLobbyPage() {
 
   function fillBots() {
     socketRef.current?.emit("lobby:fill_bots", { sessionId });
+  }
+
+  function kickSeat(seatIndex) {
+    socketRef.current?.emit("lobby:kick_seat", { sessionId, seatIndex });
   }
 
   function setTeamName(index, value) {
@@ -346,6 +360,19 @@ export default function GameLobbyPage() {
                         {isMe && (
                           <button style={S.leaveBtn} onClick={(e) => { e.stopPropagation(); leaveSeat(); }}>
                             Leave
+                          </button>
+                        )}
+                        {isHost && !isMe && (
+                          <button
+                            style={{
+                              marginTop: 8, padding: "5px 14px", borderRadius: 12,
+                              border: "1px solid #5a2020", background: "transparent",
+                              color: "#e05c5c", fontSize: 12, cursor: "pointer",
+                              fontFamily: "Georgia,serif",
+                            }}
+                            onClick={(e) => { e.stopPropagation(); kickSeat(i); }}
+                          >
+                            Kick
                           </button>
                         )}
                       </>

@@ -98,6 +98,27 @@ module.exports = function lobbySocket(nsp) {
       nsp.to(sessionId).emit("lobby:state", lobby.publicState());
     });
 
+    // ── lobby:kick_seat ─────────────────────────────────────────────────────
+    socket.on("lobby:kick_seat", ({ sessionId, seatIndex } = {}) => {
+      const lobby = GameStore.getLobby(sessionId);
+      if (!lobby) return socket.emit("lobby:error", { message: "Lobby not found." });
+      if (lobby.status !== "waiting")
+        return socket.emit("lobby:error", { message: "Cannot kick after the game starts." });
+
+      const result = lobby.kickSeat(seatIndex, user.id);
+      if (result.error) return socket.emit("lobby:error", { message: result.error });
+
+      // Tell all clients who was kicked so the kicked player can react
+      const isBot = result.kicked.userId?.startsWith("bot-");
+      if (!isBot) {
+        nsp.to(sessionId).emit("lobby:player_kicked", {
+          userId:      result.kicked.userId,
+          displayName: result.kicked.displayName,
+        });
+      }
+      nsp.to(sessionId).emit("lobby:state", lobby.publicState());
+    });
+
     // ── lobby:start_game ────────────────────────────────────────────────────
     socket.on("lobby:start_game", async ({ sessionId } = {}) => {
       const lobby = GameStore.getLobby(sessionId);

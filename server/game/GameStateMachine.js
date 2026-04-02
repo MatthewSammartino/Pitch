@@ -336,6 +336,31 @@ class GameStateMachine {
     return { roundSummary: summary, gameOver: false };
   }
 
+  /**
+   * Replace a human player with a bot in the middle of a game.
+   * Transfers the hand and updates all seat references.
+   */
+  replaceWithBot(userId) {
+    const seat = this.getSeatByUser(userId);
+    if (!seat) return { error: "Player not found" };
+
+    const botId = `bot-${seat.seatIndex}`;
+    const oldId = seat.userId;
+
+    seat.userId      = botId;
+    seat.displayName = `Bot ${seat.seatIndex + 1}`;
+    seat.avatarUrl   = null;
+    seat.isBot       = true;
+
+    // Transfer hand to bot userId key
+    if (this.hands[oldId]) {
+      this.hands[botId] = this.hands[oldId];
+      delete this.hands[oldId];
+    }
+
+    return { ok: true, botId };
+  }
+
   _startNextRound() {
     this.roundNumber++;
     this.dealerSeat     = (this.dealerSeat + 1) % this.variant;

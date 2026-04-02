@@ -20,10 +20,17 @@ const { getEffectiveSuit } = require("../game/deckConstants");
  *   game:game_over      { winner, teamScores }   → room broadcast
  *   game:error          { message }              → individual only
  */
+const AFK_TIMEOUT_MS  = 45_000; // 45 s before AFK vote is initiated
+const VOTE_TIMEOUT_MS = 30_000; // 30 s for the vote itself before it auto-cancels
+
 module.exports = function gameSocket(nsp) {
   // Track userId → socket for private messages
   // Map<sessionId, Map<userId, socket>>
   const sessionSockets = new Map();
+
+  // AFK state per game session
+  const afkTimers    = new Map(); // sessionId → { timer, userId }
+  const pendingVotes = new Map(); // sessionId → { targetUserId, displayName, totalVoters, approvals: Set, denials: Set, voteTimer }
 
   function trackSocket(sessionId, userId, socket) {
     if (!sessionSockets.has(sessionId)) sessionSockets.set(sessionId, new Map());
@@ -41,12 +48,93 @@ module.exports = function gameSocket(nsp) {
     }
   }
 
+  // ── AFK helpers ────────────────────────────────────────────────────────────
+
+  function clearAfkTimer(sessionId) {
+    const entry = afkTimers.get(sessionId);
+    if (entry) { clearTimeout(entry.timer); afkTimers.delete(sessionId); }
+  }
+
+  function startAfkTimer(sessionId, userId, displayName) {
+    clearAfkTimer(sessionId);
+    const timer = setTimeout(() => initiateAfkVote(sessionId, userId, displayName), AFK_TIMEOUT_MS);
+    afkTimers.set(sessionId, { timer, userId });
+  }
+
+  function initiateAfkVote(sessionId, userId, displayName) {
+    const game = GameStore.getGame(sessionId);
+    if (!game) return;
+
+    // Only human non-AFK players can vote
+    const voters = game.seats.filter(
+      (s) => !s.userId?.startsWith("bot-") && s.userId !== userId
+    );
+
+    if (voters.length === 0) {
+      // No one to vote — replace immediately
+      replaceAfkWithBot(sessionId, userId, displayName);
+      return;
+    }
+
+    const voteTimer = setTimeout(() => {
+      // Vote timed out → cancel; give player another chance
+      pendingVotes.delete(sessionId);
+      nsp.to(sessionId).emit("game:afk_vote_result", {
+        approved: false, targetUserId: userId, displayName,
+      });
+      startAfkTimer(sessionId, userId, displayName);
+    }, VOTE_TIMEOUT_MS);
+
+    pendingVotes.set(sessionId, {
+      targetUserId: userId, displayName,
+      totalVoters: voters.length,
+      approvals: new Set(), denials: new Set(),
+      voteTimer,
+    });
+
+    nsp.to(sessionId).emit("game:afk_vote", {
+      targetUserId: userId, displayName, totalVoters: voters.length,
+    });
+  }
+
+  function replaceAfkWithBot(sessionId, userId, displayName) {
+    const game = GameStore.getGame(sessionId);
+    if (!game) return;
+
+    const result = game.replaceWithBot(userId);
+    if (result.error) return;
+
+    sessionSockets.get(sessionId)?.delete(userId);
+    clearAfkTimer(sessionId);
+
+    nsp.to(sessionId).emit("game:afk_vote_result", {
+      approved: true, targetUserId: userId, displayName: displayName || userId,
+    });
+    nsp.to(sessionId).emit("game:state", game.getPublicState());
+    broadcastHands(sessionId, game);
+    broadcastTurnNotice(sessionId, game);
+    autoBotPlay(sessionId);
+  }
+
+  function cleanupSession(sessionId) {
+    clearAfkTimer(sessionId);
+    const vote = pendingVotes.get(sessionId);
+    if (vote) { clearTimeout(vote.voteTimer); pendingVotes.delete(sessionId); }
+  }
+
+  // ── Turn notice + AFK timer ────────────────────────────────────────────────
+
   function broadcastTurnNotice(sessionId, game) {
     let info = null;
+    let turnUserId = null;
+    let turnDisplayName = null;
+
     if (game.status === "BIDDING") {
       const bidderSeat = game.getCurrentBidderSeat();
       const bidder     = game.getUserBySeat(bidderSeat);
       if (bidder) {
+        turnUserId      = bidder.userId;
+        turnDisplayName = bidder.displayName;
         const minBid  = game.currentBid + 1;
         const isLast  = game.bidIndex === game.variant - 1;
         const canPass = !(isLast && game.highBidderSeat === -1);
@@ -56,15 +144,29 @@ module.exports = function gameSocket(nsp) {
       }
     } else if (game.status === "TRUMP_DECLARATION") {
       const declarer = game.getUserBySeat(game.highBidderSeat);
-      if (declarer) info = { userId: declarer.userId, action: "declare_trump" };
+      if (declarer) {
+        turnUserId      = declarer.userId;
+        turnDisplayName = declarer.displayName;
+        info = { userId: declarer.userId, action: "declare_trump" };
+      }
     } else if (game.status === "TRICK_PLAYING") {
       const leader = game.getUserBySeat(game.nextLeaderSeat);
       if (leader) {
+        turnUserId      = leader.userId;
+        turnDisplayName = leader.displayName;
         const ps = game.getPrivateState(leader.userId);
         info = { userId: leader.userId, action: "play_card", validCards: ps.validCards };
       }
     }
+
     if (info) nsp.to(sessionId).emit("game:your_turn", info);
+
+    // AFK timer — only for human turns
+    if (turnUserId && !turnUserId.startsWith("bot-")) {
+      startAfkTimer(sessionId, turnUserId, turnDisplayName);
+    } else {
+      clearAfkTimer(sessionId);
+    }
   }
 
   function autoBotPlay(sessionId) {
@@ -158,6 +260,7 @@ module.exports = function gameSocket(nsp) {
     nsp.to(sessionId).emit("game:round_over", roundSummary);
 
     if (gameOver) {
+      cleanupSession(sessionId);
       nsp.to(sessionId).emit("game:game_over", { winner, teamScores: game.teamScores, teamNames: game.teamNames });
       try { await finalizeSession(sessionId, game.teamScores); } catch (e) { /* ignore */ }
       GameStore.deleteGame(sessionId);
@@ -200,6 +303,7 @@ module.exports = function gameSocket(nsp) {
       const game = GameStore.getGame(sessionId);
       if (!game) return socket.emit("game:error", { message: "Game not found." });
 
+      clearAfkTimer(sessionId);
       const result = game.handleBid(user.id, amount);
       if (result.error) return socket.emit("game:error", { message: result.error });
 
@@ -212,6 +316,7 @@ module.exports = function gameSocket(nsp) {
       const game = GameStore.getGame(sessionId);
       if (!game) return socket.emit("game:error", { message: "Game not found." });
 
+      clearAfkTimer(sessionId);
       const result = game.handleDeclareTrump(user.id, suit);
       if (result.error) return socket.emit("game:error", { message: result.error });
 
@@ -224,6 +329,8 @@ module.exports = function gameSocket(nsp) {
     socket.on("game:play_card", ({ sessionId, card } = {}) => {
       const game = GameStore.getGame(sessionId);
       if (!game) return socket.emit("game:error", { message: "Game not found." });
+
+      clearAfkTimer(sessionId);
 
       const result = game.handlePlayCard(user.id, card);
       if (result.error) return socket.emit("game:error", { message: result.error });
@@ -244,6 +351,46 @@ module.exports = function gameSocket(nsp) {
         sendPrivate(sessionId, user.id, "game:your_hand", game.getPrivateState(user.id));
         broadcastTurnNotice(sessionId, game);
         autoBotPlay(sessionId);
+      }
+    });
+
+    // ── game:afk_vote_cast ─────────────────────────────────────────────────
+    socket.on("game:afk_vote_cast", ({ sessionId, approve } = {}) => {
+      const vote = pendingVotes.get(sessionId);
+      if (!vote) return;
+
+      const game = GameStore.getGame(sessionId);
+      if (!game) return;
+
+      // Must be a player in the game and not the target
+      const voter = game.seats.find((s) => s.userId === user.id);
+      if (!voter || user.id === vote.targetUserId) return;
+
+      if (approve) { vote.approvals.add(user.id); vote.denials.delete(user.id); }
+      else         { vote.denials.add(user.id);   vote.approvals.delete(user.id); }
+
+      nsp.to(sessionId).emit("game:afk_vote_update", {
+        targetUserId: vote.targetUserId,
+        displayName:  vote.displayName,
+        approvals:    vote.approvals.size,
+        denials:      vote.denials.size,
+        totalVoters:  vote.totalVoters,
+      });
+
+      const majority = Math.floor(vote.totalVoters / 2) + 1;
+
+      if (vote.approvals.size >= majority) {
+        clearTimeout(vote.voteTimer);
+        pendingVotes.delete(sessionId);
+        replaceAfkWithBot(sessionId, vote.targetUserId, vote.displayName);
+      } else if (vote.denials.size >= majority) {
+        clearTimeout(vote.voteTimer);
+        const { targetUserId, displayName } = vote;
+        pendingVotes.delete(sessionId);
+        nsp.to(sessionId).emit("game:afk_vote_result", {
+          approved: false, targetUserId, displayName,
+        });
+        startAfkTimer(sessionId, targetUserId, displayName);
       }
     });
 
