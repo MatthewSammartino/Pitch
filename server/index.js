@@ -69,15 +69,27 @@ const fakeRes = {
 function socketAuth(socket, next) {
   sessionMiddleware(socket.request, fakeRes, (err) => {
     if (err) return next(err);
+
+    // Passport (Google OAuth) user
     const userId = socket.request.session?.passport?.user;
-    if (!userId) return next(new Error("unauthorized"));
-    pool.query("SELECT * FROM users WHERE id = $1", [userId])
-      .then(({ rows }) => {
-        if (!rows.length) return next(new Error("unauthorized"));
-        socket.request.user = rows[0];
-        next();
-      })
-      .catch(next);
+    if (userId) {
+      return pool.query("SELECT * FROM users WHERE id = $1", [userId])
+        .then(({ rows }) => {
+          if (!rows.length) return next(new Error("unauthorized"));
+          socket.request.user = rows[0];
+          next();
+        })
+        .catch(next);
+    }
+
+    // Guest session
+    const guestUser = socket.request.session?.guestUser;
+    if (guestUser) {
+      socket.request.user = guestUser;
+      return next();
+    }
+
+    next(new Error("unauthorized"));
   });
 }
 

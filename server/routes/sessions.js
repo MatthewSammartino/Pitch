@@ -1,6 +1,7 @@
-const express   = require("express");
-const pool      = require("../db/pool");
-const GameStore = require("../game/GameStore");
+const express    = require("express");
+const { randomUUID } = require("crypto");
+const pool       = require("../db/pool");
+const GameStore  = require("../game/GameStore");
 const authenticate = require("../middleware/authenticate");
 
 const router = express.Router();
@@ -29,6 +30,14 @@ router.post("/", async (req, res) => {
   const { variant, groupSlug } = req.body;
   const v = Number(variant);
   if (v !== 4 && v !== 6) return res.status(400).json({ error: "variant must be 4 or 6" });
+
+  // Guest users: in-memory only (no DB record — avoids FK constraint on created_by)
+  if (req.user.is_guest) {
+    const id        = randomUUID();
+    const shortCode = randomCode();
+    GameStore.createLobby(id, null, v, req.user.id, shortCode);
+    return res.status(201).json({ id, group_id: null, variant: v, status: "waiting", created_by: req.user.id, short_code: shortCode });
+  }
 
   try {
     let groupId   = null;
@@ -104,15 +113,21 @@ router.get("/group/:slug", async (req, res) => {
   }
 });
 
-// GET /api/sessions/code/:code — look up session by room code
+// GET /api/sessions/code/:code — look up session by room code (DB + in-memory fallback)
 router.get("/code/:code", async (req, res) => {
+  const code = req.params.code.toUpperCase();
   try {
     const { rows } = await pool.query(
       "SELECT id, status, variant FROM game_sessions WHERE short_code = $1",
-      [req.params.code.toUpperCase()]
+      [code]
     );
-    if (!rows.length) return res.status(404).json({ error: "Room not found" });
-    res.json(rows[0]);
+    if (rows.length) return res.json(rows[0]);
+
+    // Fallback: in-memory lobby (guest-created sessions aren't in DB)
+    const lobby = GameStore.getLobbyByCode(code);
+    if (lobby) return res.json({ id: lobby.sessionId, status: lobby.status, variant: lobby.variant });
+
+    res.status(404).json({ error: "Room not found" });
   } catch (err) {
     console.error("GET /sessions/code/:code error:", err.message);
     res.status(500).json({ error: "Server error" });

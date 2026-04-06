@@ -274,31 +274,63 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* ── Guest sign-in prompt ───────────────────────────────────────────── */}
+        {user?.is_guest && (
+          <div style={{
+            background: "rgba(240,192,64,.05)", border: "1px solid #3a3010",
+            borderRadius: 12, padding: "16px 20px", marginBottom: 24,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            flexWrap: "wrap", gap: 12,
+          }}>
+            <div>
+              <div style={{ color: "#f0c040", fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
+                You're playing as a guest
+              </div>
+              <div style={{ color: "#5a7a5a", fontSize: 13 }}>
+                Sign in with Google to save stats, join groups, and keep your history.
+              </div>
+            </div>
+            <a
+              href="/api/auth/google"
+              style={{
+                padding: "8px 20px", borderRadius: 12,
+                border: "1px solid #f0c040", background: "rgba(240,192,64,.1)",
+                color: "#f0c040", fontSize: 13, textDecoration: "none",
+                fontFamily: "Georgia,serif", whiteSpace: "nowrap",
+              }}
+            >
+              Sign in with Google →
+            </a>
+          </div>
+        )}
+
         {/* ── Friend Groups ──────────────────────────────────────────────────── */}
         <div style={{ ...S.sectionTitle, marginBottom: 12 }}>
           <span>Your Groups</span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              style={{
-                padding: "6px 14px", borderRadius: 12,
-                border: "1px solid #2a5c2a", background: "transparent",
-                color: "#8aab8a", fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
-              }}
-              onClick={() => setShowJoinInvite((v) => !v)}
-            >
-              Join via Invite
-            </button>
-            <button
-              style={{
-                padding: "6px 14px", borderRadius: 12,
-                border: "1px solid #2a5c2a", background: "transparent",
-                color: "#8aab8a", fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
-              }}
-              onClick={() => setShowCreate(true)}
-            >
-              + New Group
-            </button>
-          </div>
+          {!user?.is_guest && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                style={{
+                  padding: "6px 14px", borderRadius: 12,
+                  border: "1px solid #2a5c2a", background: "transparent",
+                  color: "#8aab8a", fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
+                }}
+                onClick={() => setShowJoinInvite((v) => !v)}
+              >
+                Join via Invite
+              </button>
+              <button
+                style={{
+                  padding: "6px 14px", borderRadius: 12,
+                  border: "1px solid #2a5c2a", background: "transparent",
+                  color: "#8aab8a", fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
+                }}
+                onClick={() => setShowCreate(true)}
+              >
+                + New Group
+              </button>
+            </div>
+          )}
         </div>
 
         {showJoinInvite && (
@@ -319,38 +351,49 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Sammartino Group */}
-        <div style={{ ...S.groupCard, borderColor: "#2a5c2a" }}>
-          <div>
-            <div style={S.groupName}>Sammartino Group</div>
-            <div style={S.groupMeta}>Matt · Seth · Mack · Arnav · Henry · 71 games</div>
+        {/* Groups — hidden for guests */}
+        {user?.is_guest && (
+          <div style={{ color: "#2a4a2a", fontSize: 13, textAlign: "center", padding: "20px 0" }}>
+            Sign in to view and join friend groups.
           </div>
-          <Link to="/group/sammartino-group" style={S.viewBtn}>
-            View Analytics →
-          </Link>
-        </div>
+        )}
 
-        {loading ? (
-          <p style={{ color: "#5a7a5a", fontSize: 14, marginTop: 12 }}>Loading groups…</p>
-        ) : (
-          groups.filter((g) => g.slug !== "sammartino-group").map((g) => (
-            <div key={g.id} style={S.groupCard}>
+        {/* Sammartino Group + dynamic groups — hidden for guests */}
+        {!user?.is_guest && (
+          <>
+            <div style={{ ...S.groupCard, borderColor: "#2a5c2a" }}>
               <div>
-                <div style={S.groupName}>{g.name}</div>
-                <div style={S.groupMeta}>
-                  {g.member_count} member{g.member_count !== 1 ? "s" : ""}
-                  {g.game_count != null ? ` · ${g.game_count} games` : ""}
-                  {g.role ? ` · ${g.role}` : ""}
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <InviteLinkBox token={g.invite_token} />
-                </div>
+                <div style={S.groupName}>Sammartino Group</div>
+                <div style={S.groupMeta}>Matt · Seth · Mack · Arnav · Henry · 71 games</div>
               </div>
-              <Link to={`/group/${g.slug}`} style={S.viewBtn}>
+              <Link to="/group/sammartino-group" style={S.viewBtn}>
                 View Analytics →
               </Link>
             </div>
-          ))
+
+            {loading ? (
+              <p style={{ color: "#5a7a5a", fontSize: 14, marginTop: 12 }}>Loading groups…</p>
+            ) : (
+              groups.filter((g) => g.slug !== "sammartino-group").map((g) => (
+                <div key={g.id} style={S.groupCard}>
+                  <div>
+                    <div style={S.groupName}>{g.name}</div>
+                    <div style={S.groupMeta}>
+                      {g.member_count} member{g.member_count !== 1 ? "s" : ""}
+                      {g.game_count != null ? ` · ${g.game_count} games` : ""}
+                      {g.role ? ` · ${g.role}` : ""}
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                      <InviteLinkBox token={g.invite_token} />
+                    </div>
+                  </div>
+                  <Link to={`/group/${g.slug}`} style={S.viewBtn}>
+                    View Analytics →
+                  </Link>
+                </div>
+              ))
+            )}
+          </>
         )}
       </div>
 

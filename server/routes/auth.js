@@ -87,9 +87,28 @@ passport.deserializeUser(async (id, done) => {
 router.get("/me", (req, res) => {
   if (req.isAuthenticated()) {
     const { id, display_name, email, avatar_url, legacy_name } = req.user;
-    return res.json({ id, display_name, email, avatar_url, legacy_name });
+    return res.json({ id, display_name, email, avatar_url, legacy_name, is_guest: false });
+  }
+  if (req.session?.guestUser) {
+    return res.json(req.session.guestUser);
   }
   res.status(401).json({ error: "Not authenticated" });
+});
+
+// POST /api/auth/guest — create a temporary guest session (no DB record)
+router.post("/guest", (req, res) => {
+  const { randomUUID } = require("crypto");
+  const raw = (req.body?.displayName || "").trim().slice(0, 30);
+  if (!raw) return res.status(400).json({ error: "Display name is required." });
+
+  const guestUser = {
+    id:           `guest-${randomUUID()}`,
+    display_name: raw,
+    avatar_url:   null,
+    is_guest:     true,
+  };
+  req.session.guestUser = guestUser;
+  res.json(guestUser);
 });
 
 // GET /api/auth/google — redirect to Google
@@ -110,6 +129,11 @@ router.get(
 
 // POST /api/auth/logout
 router.post("/logout", (req, res, next) => {
+  // Clear guest session if present
+  if (req.session?.guestUser) {
+    delete req.session.guestUser;
+    return req.session.save(() => res.json({ ok: true }));
+  }
   req.logout((err) => {
     if (err) return next(err);
     res.json({ ok: true });

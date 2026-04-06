@@ -101,6 +101,12 @@ module.exports = {
   getLobby(sessionId)    { return lobbies.get(sessionId) || null; },
   deleteLobby(sessionId) { lobbies.delete(sessionId); },
   hasLobby(sessionId)    { return lobbies.has(sessionId); },
+  getLobbyByCode(shortCode) {
+    for (const lobby of lobbies.values()) {
+      if (lobby.shortCode === shortCode) return lobby;
+    }
+    return null;
+  },
 
   // Game
   createGame(sessionId, variant, seats, teamNames) {

@@ -161,12 +161,26 @@ export default function Navbar() {
                 />
                 <div style={S.dropdown}>
                   <div style={{ padding: "10px 18px 8px", borderBottom: "1px solid #1e4a1e", marginBottom: 4 }}>
-                    <div style={{ color: "#f0e8d0", fontWeight: 700, fontSize: 14 }}>{user.display_name}</div>
-                    <div style={{ color: "#5a7a5a", fontSize: 12 }}>{user.email}</div>
+                    <div style={{ color: "#f0e8d0", fontWeight: 700, fontSize: 14 }}>
+                      {user.display_name}
+                      {user.is_guest && (
+                        <span style={{ color: "#5a7a5a", fontWeight: 400, fontSize: 11, marginLeft: 6 }}>Guest</span>
+                      )}
+                    </div>
+                    {!user.is_guest && (
+                      <div style={{ color: "#5a7a5a", fontSize: 12 }}>{user.email}</div>
+                    )}
+                    {user.is_guest && (
+                      <a href="/api/auth/google" style={{ color: "#f0c040", fontSize: 12 }}>
+                        Sign in to save progress →
+                      </a>
+                    )}
                   </div>
-                  <Link to="/profile" style={S.dropItem} onClick={() => setOpen(false)}>
-                    Profile &amp; Stats
-                  </Link>
+                  {!user.is_guest && (
+                    <Link to="/profile" style={S.dropItem} onClick={() => setOpen(false)}>
+                      Profile &amp; Stats
+                    </Link>
+                  )}
                   <button
                     style={{ ...S.dropItem, color: "#e05c5c" }}
                     onClick={() => { setOpen(false); logout(); }}
