@@ -279,10 +279,10 @@ export default function GameRoomPage() {
           </div>
 
           {/* Right: game play area */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "8px 12px", minWidth: 0 }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 12px", minWidth: 0 }}>
 
           {/* Poker table */}
-          <div style={{ marginBottom: 10, display: "flex", justifyContent: "center" }}>
+          <div style={{ marginBottom: 10 }}>
             <PokerTable
               game={game}
               mySeat={mySeat}
@@ -294,7 +294,7 @@ export default function GameRoomPage() {
 
           {/* Live round scoring */}
           {game.liveRoundScoring && (
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 8, width: "100%", maxWidth: 540 }}>
               <LiveRoundPanel
                 liveRoundScoring={game.liveRoundScoring}
                 teamNames={game.teamNames}
@@ -310,6 +310,7 @@ export default function GameRoomPage() {
               border: "1px solid #3a5020",
               borderRadius: 12,
               marginBottom: 8,
+              width: "100%", maxWidth: 540,
             }}>
               <BidPanel
                 action={myTurn.action}
@@ -326,6 +327,7 @@ export default function GameRoomPage() {
             background: "rgba(255,255,255,.02)",
             border: "1px solid #1e4a1e",
             borderRadius: 12,
+            width: "100%", maxWidth: 540,
           }}>
             <HandDisplay
               hand={myHand}
@@ -336,7 +338,7 @@ export default function GameRoomPage() {
 
           {/* Bid history */}
           {game.status === "BIDDING" && Object.keys(game.bids || {}).length > 0 && (
-            <div style={{ textAlign: "center", color: "#3a5a3a", fontSize: 12, marginTop: 8 }}>
+            <div style={{ textAlign: "center", color: "#3a5a3a", fontSize: 12, marginTop: 8, width: "100%", maxWidth: 540 }}>
               {game.seats.filter((s) => game.bids[s.seatIndex] !== undefined).map((s) => (
                 <span key={s.seatIndex} style={{ marginRight: 12 }}>
                   {s.displayName}: {game.bids[s.seatIndex] === "pass" ? "pass" : game.bids[s.seatIndex]}
