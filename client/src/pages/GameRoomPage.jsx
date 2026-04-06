@@ -282,7 +282,7 @@ export default function GameRoomPage() {
           <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "8px 12px", minWidth: 0 }}>
 
           {/* Poker table */}
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ marginBottom: 10, display: "flex", justifyContent: "center" }}>
             <PokerTable
               game={game}
               mySeat={mySeat}
