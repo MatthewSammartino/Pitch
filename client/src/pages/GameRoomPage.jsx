@@ -6,14 +6,13 @@ import Navbar from "../components/layout/Navbar";
 import ScoreBoard from "../components/game/ScoreBoard";
 import HandDisplay from "../components/game/HandDisplay";
 import BidPanel from "../components/game/BidPanel";
-import TrickArea from "../components/game/TrickArea";
 import RoundSummaryModal from "../components/game/RoundSummaryModal";
 import GameOverModal from "../components/game/GameOverModal";
 import RoundHistoryPanel from "../components/game/RoundHistoryPanel";
 import LiveRoundPanel from "../components/game/LiveRoundPanel";
 import ChatPanel from "../components/game/ChatPanel";
+import PokerTable from "../components/game/PokerTable";
 
-const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 
 export default function GameRoomPage() {
   const { sessionId } = useParams();
@@ -33,8 +32,10 @@ export default function GameRoomPage() {
   const [afkVote, setAfkVote]         = useState(null); // { targetUserId, displayName, totalVoters, approvals, denials }
   const [afkResult, setAfkResult]     = useState(null); // { approved, displayName }
   const [chatMessages, setChatMessages] = useState([]);
+  const [reactions, setReactions] = useState(new Map());
 
   const socketRef = useRef(null);
+  const reactionCounterRef = useRef(0);
 
   useEffect(() => {
     const socket = getSocket("/game");
@@ -108,6 +109,18 @@ export default function GameRoomPage() {
       setChatMessages((prev) => [...prev, msg]);
     });
 
+    socket.on("game:reaction", ({ seatIndex, emoji }) => {
+      const id = ++reactionCounterRef.current;
+      setReactions((prev) => { const n = new Map(prev); n.set(seatIndex, { emoji, id }); return n; });
+      setTimeout(() => {
+        setReactions((prev) => {
+          const n = new Map(prev);
+          if (n.get(seatIndex)?.id === id) n.delete(seatIndex);
+          return n;
+        });
+      }, 3200);
+    });
+
     socket.on("game:afk_vote_result", ({ approved, displayName }) => {
       setAfkVote(null);
       setAfkResult({ approved, displayName });
@@ -127,6 +140,7 @@ export default function GameRoomPage() {
       socket.off("game:afk_vote_update");
       socket.off("game:afk_vote_result");
       socket.off("chat:message");
+      socket.off("game:reaction");
     };
   }, [sessionId, getSocket, user]);
 
@@ -154,76 +168,13 @@ export default function GameRoomPage() {
     socketRef.current?.emit("chat:send", { sessionId, text });
   }
 
+  function emitReact(emoji) {
+    socketRef.current?.emit("game:react", { sessionId, emoji });
+  }
+
   // ── Layout helpers ──────────────────────────────────────────────────────
 
   const mySeat = game?.seats?.find((s) => s.userId === user?.id);
-  const myTeam = mySeat?.team;
-
-  // Compass positions: clockwise from me
-  function getPositionedSeats() {
-    if (!game || !mySeat) return {};
-    const idx = mySeat.seatIndex;
-    const v   = game.variant;
-    if (v === 6) {
-      return {
-        west:  game.seats.find((s) => s.seatIndex === (idx + 1) % v),
-        nw:    game.seats.find((s) => s.seatIndex === (idx + 2) % v),
-        north: game.seats.find((s) => s.seatIndex === (idx + 3) % v), // partner
-        ne:    game.seats.find((s) => s.seatIndex === (idx + 4) % v),
-        east:  game.seats.find((s) => s.seatIndex === (idx + 5) % v),
-      };
-    }
-    return {
-      north: game.seats.find((s) => s.seatIndex === (idx + 2) % v),
-      west:  game.seats.find((s) => s.seatIndex === (idx + 1) % v),
-      east:  game.seats.find((s) => s.seatIndex === (idx + 3) % v),
-    };
-  }
-
-  const positioned = getPositionedSeats();
-
-  function OpponentBox({ seat, compact }) {
-    if (!seat) return null;
-    const isTeammate = seat.team === myTeam;
-    const isNext = game?.status === "TRICK_PLAYING"
-      ? game?.nextLeaderSeat === seat.seatIndex
-      : game?.status === "BIDDING" && game?.currentBidderSeat === seat.seatIndex;
-
-    return (
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-        minWidth: compact ? 60 : 90,
-      }}>
-        <div style={{
-          padding: "4px 10px", borderRadius: 10, whiteSpace: "nowrap",
-          border: `1px solid ${isNext ? "#f0c040" : isTeammate ? "#1e6a4e" : "#2a3a2a"}`,
-          background: isNext ? "rgba(240,192,64,.1)" : "transparent",
-          color: isTeammate ? "#4fc3a1" : "#e8dfc8",
-          fontSize: compact ? 11 : 13, fontFamily: "Georgia,serif",
-        }}>
-          {seat.displayName}
-          {isTeammate && <span style={{ color: "#3a7a5a", fontSize: 10, marginLeft: 4 }}>●</span>}
-        </div>
-        {/* Card backs */}
-        {!compact && (
-          <div style={{ display: "flex", gap: 3 }}>
-            {Array.from({ length: Math.max(0, myHand.length) }).map((_, i) => (
-              <div key={i} style={{
-                width: 10, height: 16, borderRadius: 2,
-                background: "linear-gradient(135deg,#1e4a1e,#0d2b0d)",
-                border: "1px solid #2a5c2a",
-              }} />
-            ))}
-          </div>
-        )}
-        {game?.status === "BIDDING" && game.bids[seat.seatIndex] !== undefined && (
-          <div style={{ fontSize: 11, color: "#5a7a5a" }}>
-            {game.bids[seat.seatIndex] === "pass" ? "Pass" : `Bid ${game.bids[seat.seatIndex]}`}
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div style={{
@@ -313,7 +264,7 @@ export default function GameRoomPage() {
 
       {/* Game table */}
       {game && (
-        <div style={{ flex: 1, display: "flex", gap: 0, maxWidth: 940, margin: "0 auto", width: "100%", padding: "8px 0" }}>
+        <div style={{ flex: 1, display: "flex", gap: 0, maxWidth: 1040, margin: "0 auto", width: "100%", padding: "8px 0" }}>
 
           {/* Left: round history + chat */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
@@ -330,58 +281,15 @@ export default function GameRoomPage() {
           {/* Right: game play area */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "8px 12px", minWidth: 0 }}>
 
-          {/* Compass table layout */}
-          <div style={{
-            display: "grid",
-            gridTemplateAreas: game.variant === 6
-              ? `"nw north ne" "west table east" ". south ."`
-              : `". north ." "west table east" ". south ."`,
-            gridTemplateColumns: "110px 1fr 110px",
-            gridTemplateRows: "auto auto auto",
-            gap: 10,
-            alignItems: "center",
-            justifyItems: "center",
-            marginBottom: 10,
-          }}>
-            {game.variant === 6 && (
-              <>
-                <div style={{ gridArea: "nw" }}>
-                  <OpponentBox seat={positioned.nw} compact />
-                </div>
-                <div style={{ gridArea: "ne" }}>
-                  <OpponentBox seat={positioned.ne} compact />
-                </div>
-              </>
-            )}
-            <div style={{ gridArea: "north" }}>
-              <OpponentBox seat={positioned.north} />
-            </div>
-            <div style={{ gridArea: "west" }}>
-              <OpponentBox seat={positioned.west} compact />
-            </div>
-            <div style={{
-              gridArea: "table", width: "100%",
-              background: "rgba(0,40,0,.3)",
-              border: "1px solid #1e4a1e",
-              borderRadius: 16,
-            }}>
-              <TrickArea
-                currentTrick={game.currentTrick}
-                completedTrick={game.completedTrick}
-                seats={game.seats}
-                trumpSuit={game.trumpSuit}
-                mySeatIndex={mySeat?.seatIndex ?? 0}
-              />
-            </div>
-            <div style={{ gridArea: "east" }}>
-              <OpponentBox seat={positioned.east} compact />
-            </div>
-            <div style={{ gridArea: "south", textAlign: "center", fontSize: 12, color: "#5a7a5a" }}>
-              {mySeat && <>
-                You · {game.teamNames?.[mySeat.team] ?? `Team ${mySeat.team}`}
-                {game.dealerSeat === mySeat.seatIndex && " · Dealer"}
-              </>}
-            </div>
+          {/* Poker table */}
+          <div style={{ marginBottom: 10 }}>
+            <PokerTable
+              game={game}
+              mySeat={mySeat}
+              myHand={myHand}
+              reactions={reactions}
+              onReact={emitReact}
+            />
           </div>
 
           {/* Live round scoring */}

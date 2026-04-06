@@ -20,6 +20,7 @@ const { getEffectiveSuit } = require("../game/deckConstants");
  *   game:game_over      { winner, teamScores }   → room broadcast
  *   game:error          { message }              → individual only
  */
+const ALLOWED_EMOJIS  = new Set(["👍", "👎", "😂", "😮", "😤", "🔥", "💀", "🎉"]);
 const AFK_TIMEOUT_MS  = 45_000; // 45 s before AFK vote is initiated
 const VOTE_TIMEOUT_MS = 30_000; // 30 s for the vote itself before it auto-cancels
 
@@ -366,6 +367,16 @@ module.exports = function gameSocket(nsp) {
         text:        trimmed,
         ts:          Date.now(),
       });
+    });
+
+    // ── game:react ─────────────────────────────────────────────────────────
+    socket.on("game:react", ({ sessionId, emoji } = {}) => {
+      if (!sessionId || !ALLOWED_EMOJIS.has(emoji)) return;
+      const game = GameStore.getGame(sessionId);
+      if (!game) return;
+      const seat = game.seats.find((s) => s.userId === user.id);
+      if (!seat) return;
+      nsp.to(sessionId).emit("game:reaction", { seatIndex: seat.seatIndex, emoji });
     });
 
     // ── game:afk_vote_cast ─────────────────────────────────────────────────
