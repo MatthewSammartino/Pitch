@@ -7,7 +7,8 @@ import ProfilePage    from "./pages/ProfilePage";
 import JoinGroupPage  from "./pages/JoinGroupPage";
 import GameLobbyPage  from "./pages/GameLobbyPage";
 import GameRoomPage   from "./pages/GameRoomPage";
-import StubPage       from "./pages/StubPage";
+import StubPage         from "./pages/StubPage";
+import LeaderboardPage  from "./pages/LeaderboardPage";
 
 export default function App() {
   return (
@@ -18,7 +19,7 @@ export default function App() {
       <Route path="/news"        element={<StubPage title="News" />} />
       <Route path="/store"       element={<StubPage title="Store" />} />
       <Route path="/settings"    element={<StubPage title="Settings" />} />
-      <Route path="/leaderboard" element={<StubPage title="Leaderboard" />} />
+      <Route path="/leaderboard" element={<LeaderboardPage />} />
       <Route path="/help"        element={<StubPage title="Help" />} />
 
       {/* Protected */}

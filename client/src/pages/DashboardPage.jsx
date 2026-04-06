@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
+import StatsBar from "../components/dashboard/StatsBar";
 import CreateGroupModal from "../components/groups/CreateGroupModal";
 import InviteLinkBox from "../components/groups/InviteLinkBox";
 
@@ -184,6 +185,7 @@ export default function DashboardPage() {
   return (
     <div style={S.page}>
       <Navbar />
+      {!user?.is_guest && <StatsBar />}
       <div style={S.body}>
         <h1 style={S.greeting}>Welcome back, {user?.display_name || "Player"}.</h1>
         <p style={S.sub}>Play a game or browse your groups below.</p>

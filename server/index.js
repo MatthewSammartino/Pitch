@@ -15,6 +15,7 @@ const groupsRouter    = require("./routes/groups");
 const usersRouter     = require("./routes/users");
 const analyticsRouter = require("./routes/analytics");
 const sessionsRouter  = require("./routes/sessions");
+const statsRouter     = require("./routes/stats");
 
 const app = express();
 const server = http.createServer(app);
@@ -114,6 +115,7 @@ app.use("/api/groups",    groupsRouter);
 app.use("/api/users",     usersRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/sessions",  sessionsRouter);
+app.use("/api/stats",     statsRouter);
 
 // ── Legacy games routes (UNCHANGED) ───────────────────────────────────────
 app.get("/api/games", async (req, res) => {
