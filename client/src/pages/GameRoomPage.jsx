@@ -11,6 +11,7 @@ import RoundSummaryModal from "../components/game/RoundSummaryModal";
 import GameOverModal from "../components/game/GameOverModal";
 import RoundHistoryPanel from "../components/game/RoundHistoryPanel";
 import LiveRoundPanel from "../components/game/LiveRoundPanel";
+import ChatPanel from "../components/game/ChatPanel";
 
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 
@@ -31,6 +32,7 @@ export default function GameRoomPage() {
   const [connStatus, setConnStatus]   = useState("connecting");
   const [afkVote, setAfkVote]         = useState(null); // { targetUserId, displayName, totalVoters, approvals, denials }
   const [afkResult, setAfkResult]     = useState(null); // { approved, displayName }
+  const [chatMessages, setChatMessages] = useState([]);
 
   const socketRef = useRef(null);
 
@@ -102,6 +104,10 @@ export default function GameRoomPage() {
       setAfkVote((prev) => prev ? { ...prev, approvals: info.approvals, denials: info.denials } : prev);
     });
 
+    socket.on("chat:message", (msg) => {
+      setChatMessages((prev) => [...prev, msg]);
+    });
+
     socket.on("game:afk_vote_result", ({ approved, displayName }) => {
       setAfkVote(null);
       setAfkResult({ approved, displayName });
@@ -120,6 +126,7 @@ export default function GameRoomPage() {
       socket.off("game:afk_vote");
       socket.off("game:afk_vote_update");
       socket.off("game:afk_vote_result");
+      socket.off("chat:message");
     };
   }, [sessionId, getSocket, user]);
 
@@ -141,6 +148,10 @@ export default function GameRoomPage() {
 
   function castAfkVote(approve) {
     socketRef.current?.emit("game:afk_vote_cast", { sessionId, approve });
+  }
+
+  function sendChat(text) {
+    socketRef.current?.emit("chat:send", { sessionId, text });
   }
 
   // ── Layout helpers ──────────────────────────────────────────────────────
@@ -304,8 +315,17 @@ export default function GameRoomPage() {
       {game && (
         <div style={{ flex: 1, display: "flex", gap: 0, maxWidth: 940, margin: "0 auto", width: "100%", padding: "8px 0" }}>
 
-          {/* Left: round history */}
-          <RoundHistoryPanel rounds={roundHistory} teamNames={game.teamNames} />
+          {/* Left: round history + chat */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+            <RoundHistoryPanel rounds={roundHistory} teamNames={game.teamNames} />
+            <div style={{ width: 200 }}>
+              <ChatPanel
+                messages={chatMessages}
+                onSend={sendChat}
+                myUserId={user?.id}
+              />
+            </div>
+          </div>
 
           {/* Right: game play area */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "8px 12px", minWidth: 0 }}>

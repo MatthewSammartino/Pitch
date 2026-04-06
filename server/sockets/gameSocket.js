@@ -354,6 +354,20 @@ module.exports = function gameSocket(nsp) {
       }
     });
 
+    // ── chat:send ──────────────────────────────────────────────────────────
+    socket.on("chat:send", ({ sessionId, text } = {}) => {
+      if (!sessionId || typeof text !== "string") return;
+      const trimmed = text.trim().slice(0, 200);
+      if (!trimmed) return;
+      nsp.to(sessionId).emit("chat:message", {
+        userId:      user.id,
+        displayName: user.display_name,
+        avatarUrl:   user.avatar_url || null,
+        text:        trimmed,
+        ts:          Date.now(),
+      });
+    });
+
     // ── game:afk_vote_cast ─────────────────────────────────────────────────
     socket.on("game:afk_vote_cast", ({ sessionId, approve } = {}) => {
       const vote = pendingVotes.get(sessionId);

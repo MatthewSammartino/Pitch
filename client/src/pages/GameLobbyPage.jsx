@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { useSocketContext } from "../context/SocketContext";
 import Navbar from "../components/layout/Navbar";
+import ChatPanel from "../components/game/ChatPanel";
 
 const TEAM_COLORS = ["#4fc3a1", "#f0c040", "#e07a5f"]; // team A = teal, B = gold, C = coral
 
@@ -131,6 +132,7 @@ export default function GameLobbyPage() {
 
   const [lobby, setLobby] = useState(null);
   const [error, setError] = useState("");
+  const [chatMessages, setChatMessages] = useState([]);
   const [connStatus, setConnStatus] = useState("connecting"); // connecting | connected | failed
   const [copied, setCopied] = useState(false);
   const socketRef = useRef(null);
@@ -180,6 +182,10 @@ export default function GameLobbyPage() {
       }
     });
 
+    socket.on("chat:message", (msg) => {
+      setChatMessages((prev) => [...prev, msg]);
+    });
+
     return () => {
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
@@ -188,6 +194,7 @@ export default function GameLobbyPage() {
       socket.off("lobby:already_started", goToGame);
       socket.off("lobby:error");
       socket.off("lobby:player_kicked");
+      socket.off("chat:message");
     };
   }, [sessionId, getSocket, navigate]);
 
@@ -216,6 +223,10 @@ export default function GameLobbyPage() {
     const next = [...(lobby?.teamNames || ["Team A", "Team B"])];
     next[index] = value;
     socketRef.current?.emit("lobby:set_team_names", { sessionId, teamNames: next });
+  }
+
+  function sendChat(text) {
+    socketRef.current?.emit("chat:send", { sessionId, text });
   }
 
   function copyLink() {
@@ -421,6 +432,15 @@ export default function GameLobbyPage() {
                 : `Waiting for ${lobby.variant - lobby.filledCount} more player(s)…`
               : "Waiting for the host to start the game…"}
         </p>
+
+        {/* Chat */}
+        <div style={{ marginTop: 24 }}>
+          <ChatPanel
+            messages={chatMessages}
+            onSend={sendChat}
+            myUserId={user?.id}
+          />
+        </div>
       </div>
     </div>
   );
