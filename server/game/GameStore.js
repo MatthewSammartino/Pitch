@@ -7,12 +7,13 @@ const GameStateMachine = require("./GameStateMachine");
 // ── Lobby state ─────────────────────────────────────────────────────────────
 
 class LobbyState {
-  constructor(sessionId, groupId, variant, createdBy, shortCode) {
+  constructor(sessionId, groupId, variant, createdBy, shortCode, isPublic = false) {
     this.sessionId  = sessionId;
     this.groupId    = groupId;
     this.variant    = variant;
     this.createdBy  = createdBy;
     this.shortCode  = shortCode || null;
+    this.isPublic   = isPublic;
     this.status     = "waiting";
     this.seats      = Array(variant).fill(null);
     this.teamNames  = variant === 6 ? ["A", "B", "C"] : ["A", "B"];
@@ -93,8 +94,8 @@ const games   = new Map(); // sessionId → GameStateMachine
 
 module.exports = {
   // Lobby
-  createLobby(sessionId, groupId, variant, createdBy, shortCode) {
-    const lobby = new LobbyState(sessionId, groupId, variant, createdBy, shortCode);
+  createLobby(sessionId, groupId, variant, createdBy, shortCode, isPublic = false) {
+    const lobby = new LobbyState(sessionId, groupId, variant, createdBy, shortCode, isPublic);
     lobbies.set(sessionId, lobby);
     return lobby;
   },

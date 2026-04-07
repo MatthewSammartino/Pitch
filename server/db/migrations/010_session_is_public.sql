@@ -1,0 +1,2 @@
+ALTER TABLE game_sessions
+  ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT false;

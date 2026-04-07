@@ -110,6 +110,7 @@ export default function DashboardPage() {
   // Create Lobby state
   const [createOpen, setCreateOpen] = useState(false);
   const [variant, setVariant]       = useState(4);
+  const [isPublic, setIsPublic]     = useState(false);
   const [creating, setCreating]     = useState(false);
 
   // Join Lobby state
@@ -120,6 +121,11 @@ export default function DashboardPage() {
 
   // Solo state
   const [soloBusy, setSoloBusy] = useState(false);
+
+  // Public lobbies
+  const [publicLobbies, setPublicLobbies]     = useState([]);
+  const [lobbiesLoading, setLobbiesLoading]   = useState(true);
+  const [queueBusy, setQueueBusy]             = useState(false);
 
   // Join via invite state
   const [showJoinInvite, setShowJoinInvite] = useState(false);
@@ -132,15 +138,34 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    function fetchPublicLobbies() {
+      api.get("/api/sessions/public")
+        .then(setPublicLobbies)
+        .catch(() => {})
+        .finally(() => setLobbiesLoading(false));
+    }
+    fetchPublicLobbies();
+    const interval = setInterval(fetchPublicLobbies, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   function handleGroupCreated(group) {
     setGroups((prev) => [...prev, group]);
   }
 
   function createLobby() {
     setCreating(true);
-    api.post("/api/sessions", { variant })
+    api.post("/api/sessions", { variant, is_public: isPublic })
       .then((s) => navigate(`/lobby/${s.id}`))
       .catch(() => setCreating(false));
+  }
+
+  function joinQueue() {
+    setQueueBusy(true);
+    api.post("/api/sessions/queue")
+      .then((s) => navigate(`/lobby/${s.id}`))
+      .catch(() => setQueueBusy(false));
   }
 
   function joinLobby() {
@@ -190,6 +215,70 @@ export default function DashboardPage() {
         <h1 style={S.greeting}>Welcome back, {user?.display_name || "Player"}.</h1>
         <p style={S.sub}>Play a game or browse your groups below.</p>
 
+        {/* ── Open Lobbies ──────────────────────────────────────────────────── */}
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ ...S.sectionTitle, marginBottom: 12 }}>
+            <span>Open Lobbies</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn onClick={joinQueue} disabled={queueBusy} gold>
+                {queueBusy ? "Finding game…" : "Join Queue"}
+              </Btn>
+            </div>
+          </div>
+
+          {lobbiesLoading ? (
+            <div style={{
+              background: "rgba(255,255,255,.02)", border: "1px solid #1e3a1e",
+              borderRadius: 10, padding: "14px 16px", color: "#2a4a2a", fontSize: 13,
+            }}>
+              Loading open games…
+            </div>
+          ) : publicLobbies.length === 0 ? (
+            <div style={{
+              background: "rgba(255,255,255,.02)", border: "1px solid #1e3a1e",
+              borderRadius: 10, padding: "14px 16px", color: "#3a5a3a", fontSize: 13,
+            }}>
+              No open games right now — create a public lobby or join the queue to start one.
+            </div>
+          ) : (
+            publicLobbies.map((lobby) => (
+              <div key={lobby.id} style={{
+                background: "rgba(255,255,255,.03)", border: "1px solid #1e4a1e",
+                borderRadius: 10, padding: "12px 16px", marginBottom: 8,
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  {lobby.host_avatar
+                    ? <img src={lobby.host_avatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid #2a5c2a" }} />
+                    : <div style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid #2a5c2a", background: "#1e4a1e", display: "flex", alignItems: "center", justifyContent: "center", color: "#f0c040", fontSize: 14, fontWeight: 700 }}>
+                        {lobby.host_name?.[0]?.toUpperCase() || "?"}
+                      </div>
+                  }
+                  <div>
+                    <div style={{ color: "#f0e8d0", fontSize: 14, fontWeight: 600 }}>
+                      {lobby.host_name}'s {lobby.seats_total}-Player Game
+                    </div>
+                    <div style={{ color: "#5a7a5a", fontSize: 12, marginTop: 2 }}>
+                      {lobby.seats_filled} / {lobby.seats_total} seats filled
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate(`/lobby/${lobby.id}`)}
+                  style={{
+                    padding: "7px 18px", borderRadius: 14,
+                    border: "1px solid #f0c040", background: "rgba(240,192,64,.1)",
+                    color: "#f0c040", fontSize: 13, cursor: "pointer",
+                    fontFamily: "Georgia,serif", whiteSpace: "nowrap",
+                  }}
+                >
+                  Join →
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
         {/* ── Play Now ──────────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 40 }}>
           <div style={S.sectionTitle}><span>Play Now</span></div>
@@ -222,11 +311,36 @@ export default function DashboardPage() {
                       </button>
                     ))}
                   </div>
+                  <button
+                    onClick={() => setIsPublic((v) => !v)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: "transparent", border: "none", cursor: "pointer",
+                      padding: 0, marginBottom: 12,
+                    }}
+                  >
+                    <div style={{
+                      width: 32, height: 18, borderRadius: 9,
+                      background: isPublic ? "rgba(240,192,64,.3)" : "rgba(255,255,255,.08)",
+                      border: `1px solid ${isPublic ? "#f0c040" : "#2a5c2a"}`,
+                      position: "relative", transition: "all .15s",
+                    }}>
+                      <div style={{
+                        width: 12, height: 12, borderRadius: "50%",
+                        background: isPublic ? "#f0c040" : "#3a5a3a",
+                        position: "absolute", top: 2,
+                        left: isPublic ? 16 : 2, transition: "left .15s",
+                      }} />
+                    </div>
+                    <span style={{ color: isPublic ? "#f0c040" : "#5a7a5a", fontSize: 12, fontFamily: "Georgia,serif" }}>
+                      {isPublic ? "Public — visible in Open Lobbies" : "Private — invite only"}
+                    </span>
+                  </button>
                   <div style={{ display: "flex", gap: 8 }}>
                     <Btn gold onClick={createLobby} disabled={creating}>
                       {creating ? "Creating…" : "Create →"}
                     </Btn>
-                    <Btn onClick={() => setCreateOpen(false)}>Cancel</Btn>
+                    <Btn onClick={() => { setCreateOpen(false); setIsPublic(false); }}>Cancel</Btn>
                   </div>
                 </div>
               )}

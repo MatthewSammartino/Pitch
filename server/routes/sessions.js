@@ -24,10 +24,10 @@ async function generateUniqueCode() {
 }
 
 // POST /api/sessions — create a new game session (lobby)
-// Body: { variant, groupSlug? }
+// Body: { variant, groupSlug?, is_public? }
 // Any authenticated user can create a game; group association is optional.
 router.post("/", async (req, res) => {
-  const { variant, groupSlug } = req.body;
+  const { variant, groupSlug, is_public = false } = req.body;
   const v = Number(variant);
   if (v !== 4 && v !== 6) return res.status(400).json({ error: "variant must be 4 or 6" });
 
@@ -35,7 +35,7 @@ router.post("/", async (req, res) => {
   if (req.user.is_guest) {
     const id        = randomUUID();
     const shortCode = randomCode();
-    GameStore.createLobby(id, null, v, req.user.id, shortCode);
+    GameStore.createLobby(id, null, v, req.user.id, shortCode, false);
     return res.status(201).json({ id, group_id: null, variant: v, status: "waiting", created_by: req.user.id, short_code: shortCode });
   }
 
@@ -53,17 +53,85 @@ router.post("/", async (req, res) => {
 
     const shortCode = await generateUniqueCode();
     const { rows } = await pool.query(
-      `INSERT INTO game_sessions (group_id, variant, status, created_by, short_code)
-       VALUES ($1, $2, 'waiting', $3, $4) RETURNING *`,
-      [groupId, v, req.user.id, shortCode]
+      `INSERT INTO game_sessions (group_id, variant, status, created_by, short_code, is_public)
+       VALUES ($1, $2, 'waiting', $3, $4, $5) RETURNING *`,
+      [groupId, v, req.user.id, shortCode, !!is_public]
     );
     const session = rows[0];
 
-    GameStore.createLobby(session.id, groupId, v, req.user.id, shortCode);
+    GameStore.createLobby(session.id, groupId, v, req.user.id, shortCode, !!is_public);
 
     res.status(201).json({ ...session, groupSlug: groupSlugOut });
   } catch (err) {
     console.error("POST /sessions error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/sessions/public — list public waiting sessions with live seat counts
+// No auth required so guests can browse open games
+router.get("/public", async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT gs.id, gs.variant, gs.short_code, gs.created_at,
+             u.display_name AS host_name, u.avatar_url AS host_avatar
+      FROM game_sessions gs
+      LEFT JOIN users u ON u.id = gs.created_by
+      WHERE gs.status = 'waiting' AND gs.is_public = true
+      ORDER BY gs.created_at DESC
+      LIMIT 20
+    `);
+
+    const enriched = rows.map((r) => {
+      const lobby = GameStore.getLobby(r.id);
+      const filled = lobby ? lobby.filledCount() : 0;
+      return { ...r, seats_filled: filled, seats_total: r.variant };
+    }).filter((r) => r.seats_filled < r.seats_total);
+
+    res.json(enriched);
+  } catch (err) {
+    console.error("GET /sessions/public error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/sessions/queue — join best available public lobby, or create one
+router.post("/queue", async (req, res) => {
+  try {
+    // Find public waiting sessions ordered oldest first (most likely to fill soon)
+    const { rows } = await pool.query(`
+      SELECT id, variant FROM game_sessions
+      WHERE status = 'waiting' AND is_public = true
+      ORDER BY created_at ASC LIMIT 20
+    `);
+
+    // Pick the first with open seats (prioritize oldest/most-filled)
+    for (const row of rows) {
+      const lobby = GameStore.getLobby(row.id);
+      if (lobby && !lobby.isFull()) {
+        return res.json({ id: row.id });
+      }
+    }
+
+    // No open public lobby — create one (guests use in-memory only)
+    if (req.user.is_guest) {
+      const id        = randomUUID();
+      const shortCode = randomCode();
+      GameStore.createLobby(id, null, 4, req.user.id, shortCode, false);
+      return res.json({ id });
+    }
+
+    const shortCode = await generateUniqueCode();
+    const { rows: newRows } = await pool.query(
+      `INSERT INTO game_sessions (group_id, variant, status, created_by, short_code, is_public)
+       VALUES (NULL, 4, 'waiting', $1, $2, true) RETURNING id`,
+      [req.user.id, shortCode]
+    );
+    const id = newRows[0].id;
+    GameStore.createLobby(id, null, 4, req.user.id, shortCode, true);
+    res.json({ id });
+  } catch (err) {
+    console.error("POST /sessions/queue error:", err.message);
     res.status(500).json({ error: "Server error" });
   }
 });
