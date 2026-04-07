@@ -69,15 +69,7 @@ router.post("/claim", async (req, res) => {
     try {
       await client.query("BEGIN");
 
-      // Update stub with real user's google credentials
-      await client.query(
-        `UPDATE users
-         SET google_id = $1, email = $2, avatar_url = $3, last_seen_at = NOW()
-         WHERE id = $4`,
-        [req.user.google_id, req.user.email, req.user.avatar_url, stub.id]
-      );
-
-      // Move group memberships from the temp account to the stub
+      // 1. Move group memberships from temp account to stub (before deleting temp user)
       await client.query(
         `INSERT INTO group_members (group_id, user_id, role, joined_at)
          SELECT group_id, $1, role, joined_at FROM group_members WHERE user_id = $2
@@ -85,8 +77,17 @@ router.post("/claim", async (req, res) => {
         [stub.id, req.user.id]
       );
 
-      // Delete the temporary user account
+      // 2. Delete the temporary user account first — this releases the google_id
+      //    from the UNIQUE constraint so we can assign it to the stub
       await client.query("DELETE FROM users WHERE id = $1", [req.user.id]);
+
+      // 3. Now update stub with the freed google credentials
+      await client.query(
+        `UPDATE users
+         SET google_id = $1, email = $2, avatar_url = $3, last_seen_at = NOW()
+         WHERE id = $4`,
+        [req.user.google_id, req.user.email, req.user.avatar_url, stub.id]
+      );
 
       await client.query("COMMIT");
 
