@@ -31,9 +31,20 @@ router.patch("/me", async (req, res) => {
 });
 
 // POST /api/users/claim — link current user to a legacy stub account
-// Body: { legacy_name: 'matt' }
+// Body: { legacy_name: 'matt', password: 'hmmmmm' }
 router.post("/claim", async (req, res) => {
-  const { legacy_name } = req.body;
+  const { legacy_name, password } = req.body;
+
+  // Guests cannot claim — they have no persistent account to merge from
+  if (req.user.is_guest) {
+    return res.status(403).json({ error: "Sign in with Google before linking a legacy account." });
+  }
+
+  // Password gate
+  if (password !== "hmmmmm") {
+    return res.status(403).json({ error: "Incorrect password." });
+  }
+
   if (!legacy_name) return res.status(400).json({ error: "legacy_name is required" });
 
   // Current user must not already have a legacy_name
@@ -80,10 +91,14 @@ router.post("/claim", async (req, res) => {
       await client.query("COMMIT");
 
       // Refresh the session to use the stub account
-      req.login(stub, (err) => {
+      // Re-fetch stub so the response has the updated email/avatar_url (not the pre-update stale row)
+      req.login(stub, async (err) => {
         if (err) return res.status(500).json({ error: "Session refresh failed" });
-        const { id, display_name, email, avatar_url, legacy_name: ln } = stub;
-        res.json({ id, display_name, email, avatar_url, legacy_name: ln });
+        const { rows: fresh } = await pool.query(
+          "SELECT id, display_name, email, avatar_url, legacy_name FROM users WHERE id = $1",
+          [stub.id]
+        );
+        res.json(fresh[0]);
       });
     } catch (err) {
       await client.query("ROLLBACK");

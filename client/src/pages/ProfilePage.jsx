@@ -73,6 +73,7 @@ export default function ProfilePage() {
 
   // Legacy claim
   const [claimTarget, setClaimTarget] = useState("");
+  const [claimPassword, setClaimPassword] = useState("");
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimMsg, setClaimMsg] = useState("");
 
@@ -96,11 +97,13 @@ export default function ProfilePage() {
     setClaimLoading(true);
     setClaimMsg("");
     try {
-      const updated = await api.post("/api/users/claim", { legacy_name: claimTarget });
+      const updated = await api.post("/api/users/claim", { legacy_name: claimTarget, password: claimPassword });
       setUser((u) => ({ ...u, ...updated }));
       setClaimMsg(`✓ Claimed as ${updated.display_name}! Your historical game data is now linked.`);
+      setClaimPassword("");
     } catch (err) {
       setClaimMsg(err.message || "Failed to claim account.");
+      setClaimPassword("");
     }
     setClaimLoading(false);
   }
@@ -169,11 +172,20 @@ export default function ProfilePage() {
                   </option>
                 ))}
               </select>
+              <label style={S.label}>Password</label>
+              <input
+                type="password"
+                style={S.input}
+                placeholder="Enter claim password"
+                value={claimPassword}
+                onChange={(e) => setClaimPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && claimAccount()}
+              />
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <button
                   style={S.btn("primary")}
                   onClick={claimAccount}
-                  disabled={claimLoading || !claimTarget}
+                  disabled={claimLoading || !claimTarget || !claimPassword}
                 >
                   {claimLoading ? "Claiming…" : "Claim Account"}
                 </button>
