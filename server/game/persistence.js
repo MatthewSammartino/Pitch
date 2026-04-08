@@ -55,8 +55,9 @@ async function saveRoundPoints(roundId, breakdown, seats) {
 
 /**
  * Finalize a session: update status, final scores, timestamps.
+ * Also writes each human player's final_score to session_players.
  */
-async function finalizeSession(sessionId, teamScores) {
+async function finalizeSession(sessionId, teamScores, seats = []) {
   await pool.query(
     `UPDATE game_sessions
      SET status = 'completed', completed_at = NOW(),
@@ -64,6 +65,15 @@ async function finalizeSession(sessionId, teamScores) {
      WHERE id = $3`,
     [teamScores[0], teamScores[1], sessionId]
   );
+
+  const humanSeats = seats.filter((s) => !s.isBot && s.userId);
+  for (const s of humanSeats) {
+    await pool.query(
+      `UPDATE session_players SET final_score = $1
+       WHERE session_id = $2 AND user_id = $3`,
+      [teamScores[s.team], sessionId, s.userId]
+    );
+  }
 }
 
 module.exports = { saveRound, saveRoundPoints, finalizeSession };

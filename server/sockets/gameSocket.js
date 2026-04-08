@@ -263,7 +263,7 @@ module.exports = function gameSocket(nsp) {
     if (gameOver) {
       cleanupSession(sessionId);
       nsp.to(sessionId).emit("game:game_over", { winner, teamScores: game.teamScores, teamNames: game.teamNames });
-      try { await finalizeSession(sessionId, game.teamScores); } catch (e) { /* ignore */ }
+      try { await finalizeSession(sessionId, game.teamScores, game.seats); } catch (e) { /* ignore */ }
       GameStore.deleteGame(sessionId);
     } else {
       // Short delay so clients can show the round summary before dealing

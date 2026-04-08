@@ -41,13 +41,13 @@ router.get("/groups/:slug", requireGroupMember, async (req, res) => {
     }
 
     // New groups: read from game_sessions + session_players
-    const [sessionsResult, membersResult] = await Promise.all([
+    const [sessionsResult, membersResult, memberStatsResult] = await Promise.all([
       pool.query(
         `SELECT gs.id, gs.started_at::date AS date,
                 gs.team_a_score, gs.team_b_score, gs.variant
          FROM game_sessions gs
          WHERE gs.group_id = $1 AND gs.status = 'completed'
-         ORDER BY gs.started_at`,
+         ORDER BY gs.started_at DESC`,
         [req.group.id]
       ),
       pool.query(
@@ -55,6 +55,20 @@ router.get("/groups/:slug", requireGroupMember, async (req, res) => {
          FROM group_members gm
          JOIN users u ON u.id = gm.user_id
          WHERE gm.group_id = $1`,
+        [req.group.id]
+      ),
+      pool.query(
+        `SELECT
+           sp.user_id,
+           COUNT(DISTINCT sp.session_id)::int                    AS games_played,
+           COUNT(r.id)::int                                      AS bid_attempts,
+           SUM(CASE WHEN r.bid_made THEN 1 ELSE 0 END)::int     AS bid_successes,
+           ROUND(AVG(sp.final_score)::numeric, 1)               AS avg_score
+         FROM session_players sp
+         JOIN game_sessions gs ON gs.id = sp.session_id
+         LEFT JOIN rounds r ON r.session_id = sp.session_id AND r.bidder_id = sp.user_id
+         WHERE gs.group_id = $1 AND gs.status = 'completed'
+         GROUP BY sp.user_id`,
         [req.group.id]
       ),
     ]);
@@ -81,10 +95,23 @@ router.get("/groups/:slug", requireGroupMember, async (req, res) => {
     const games = sessionsResult.rows.map((s) => ({
       id: s.id,
       date: s.date,
+      team_a_score: s.team_a_score,
+      team_b_score: s.team_b_score,
       scores: scoresMap[s.id] || {},
     }));
 
-    res.json({ isLegacy: false, games, members: membersResult.rows });
+    // Build memberStats map: userId → { games_played, bid_attempts, bid_successes, avg_score }
+    const memberStats = {};
+    for (const row of memberStatsResult.rows) {
+      memberStats[row.user_id] = {
+        games_played:  parseInt(row.games_played),
+        bid_attempts:  parseInt(row.bid_attempts),
+        bid_successes: parseInt(row.bid_successes),
+        avg_score:     row.avg_score != null ? +row.avg_score : null,
+      };
+    }
+
+    res.json({ isLegacy: false, games, members: membersResult.rows, memberStats });
   } catch (err) {
     console.error("GET /analytics/groups/:slug error:", err.message);
     res.status(500).json({ error: "Server error" });

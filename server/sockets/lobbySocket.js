@@ -153,6 +153,20 @@ module.exports = function lobbySocket(nsp) {
         // Transition lobby → game
         lobby.status = "playing";
         const gameSeats = lobby.toGameSeats();
+
+        // Record human participants in session_players (bots are excluded — not valid DB users)
+        const humanSeats = gameSeats.filter((s) => !s.isBot);
+        if (humanSeats.length > 0) {
+          const numTeams = lobby.variant === 6 ? 3 : 2;
+          await Promise.all(humanSeats.map((s) =>
+            pool.query(
+              `INSERT INTO session_players (session_id, user_id, seat, team)
+               VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+              [sessionId, s.userId, s.seatIndex, s.seatIndex % numTeams]
+            )
+          ));
+        }
+
         GameStore.createGame(sessionId, lobby.variant, gameSeats, lobby.teamNames);
 
         nsp.to(sessionId).emit("lobby:started", { sessionId });

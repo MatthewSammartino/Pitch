@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, Tooltip,
+} from "recharts";
 
 function fmt(val, pct = false) {
   if (val == null) return "—";
@@ -9,11 +13,51 @@ function fmt(val, pct = false) {
   return val;
 }
 
+function StatCard({ label, value, sub }) {
+  return (
+    <div style={{
+      background: "rgba(255,255,255,.03)", border: "1px solid #1e4a1e",
+      borderRadius: 10, padding: "14px 18px", textAlign: "center",
+    }}>
+      <div style={{ color: "#f0e8d0", fontSize: 22, fontWeight: 700, fontFamily: "Georgia,serif" }}>
+        {value}
+      </div>
+      <div style={{ color: "#5a7a5a", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", marginTop: 4 }}>
+        {label}
+      </div>
+      {sub && (
+        <div style={{ color: "#3a5a3a", fontSize: 11, marginTop: 2 }}>{sub}</div>
+      )}
+    </div>
+  );
+}
+
+function TabBtn({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "8px 22px", borderRadius: 20,
+        border: active ? "1px solid #f0c040" : "1px solid #2a4a2a",
+        background: active ? "rgba(240,192,64,.12)" : "transparent",
+        color: active ? "#f0c040" : "#5a7a5a",
+        fontSize: 13, cursor: "pointer", fontFamily: "Georgia,serif",
+        transition: "all .15s",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function LeaderboardPage() {
   const { user } = useAuth();
-  const [rows, setRows]       = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState("");
+  const [rows, setRows]           = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState("");
+  const [activeTab, setActiveTab] = useState("rankings");
+  const [myStats, setMyStats]     = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
     api.get("/api/stats/leaderboard")
@@ -21,6 +65,25 @@ export default function LeaderboardPage() {
       .catch(() => setError("Failed to load leaderboard."))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "mystats" || myStats || statsLoading || !user) return;
+    setStatsLoading(true);
+    api.get("/api/stats/me")
+      .then(setMyStats)
+      .catch(() => {})
+      .finally(() => setStatsLoading(false));
+  }, [activeTab, myStats, statsLoading, user]);
+
+  // Compute user's rank from leaderboard data
+  const myRank = rows.findIndex((r) => r.id === user?.id);
+
+  // Radar data (normalized 0–100)
+  const radarData = myStats ? [
+    { metric: "Win %",     value: myStats.win_pct  != null ? Math.round(myStats.win_pct * 100)            : 0 },
+    { metric: "Bid %",     value: myStats.bid_rate != null ? Math.round(myStats.bid_rate * 100)            : 0 },
+    { metric: "Avg Score", value: myStats.avg_score != null ? Math.round((myStats.avg_score / 15) * 100)  : 0 },
+  ] : [];
 
   return (
     <div style={{
@@ -34,124 +97,225 @@ export default function LeaderboardPage() {
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "36px 20px" }}>
         <h1 style={{
           fontFamily: "'Playfair Display',serif",
-          fontSize: 30, color: "#f0e8d0", margin: "0 0 6px",
+          fontSize: 30, color: "#f0e8d0", margin: "0 0 20px",
         }}>
           Leaderboard
         </h1>
-        <p style={{ color: "#3a5a3a", fontSize: 13, margin: "0 0 28px" }}>
-          All-time rankings across fully human games (no bots).
-        </p>
 
-        {error && (
-          <div style={{ color: "#e05c5c", fontSize: 14, padding: "12px 0" }}>{error}</div>
-        )}
+        {/* Tab switcher */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
+          <TabBtn active={activeTab === "rankings"} onClick={() => setActiveTab("rankings")}>
+            Rankings
+          </TabBtn>
+          {user && !user.is_guest && (
+            <TabBtn active={activeTab === "mystats"} onClick={() => setActiveTab("mystats")}>
+              My Stats
+            </TabBtn>
+          )}
+        </div>
 
-        {loading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} style={{
-                height: 52, borderRadius: 10,
-                background: "rgba(255,255,255,.03)",
-                border: "1px solid #1a3a1a",
-              }} />
-            ))}
-          </div>
-        )}
-
-        {!loading && !error && rows.length === 0 && (
-          <div style={{ color: "#3a5a3a", fontSize: 14, textAlign: "center", padding: "40px 0" }}>
-            No ranked games yet. Play a full game with 4 or 6 human players to appear here.
-          </div>
-        )}
-
-        {!loading && rows.length > 0 && (
+        {/* ── Rankings tab ─────────────────────────────────────────────────── */}
+        {activeTab === "rankings" && (
           <>
-            {/* Header */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "36px 1fr 64px 64px 64px 72px",
-              gap: "0 12px",
-              padding: "0 16px 8px",
-              color: "#3a5a3a",
-              fontSize: 11,
-              letterSpacing: 1,
-              textTransform: "uppercase",
-            }}>
-              <div>#</div>
-              <div>Player</div>
-              <div style={{ textAlign: "right" }}>Games</div>
-              <div style={{ textAlign: "right" }}>Win%</div>
-              <div style={{ textAlign: "right" }}>Bid%</div>
-              <div style={{ textAlign: "right" }}>Avg Score</div>
-            </div>
+            <p style={{ color: "#3a5a3a", fontSize: 13, margin: "0 0 20px" }}>
+              All-time rankings across fully human games (no bots).
+            </p>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {rows.map((row, i) => {
-                const isMe = row.id === user?.id;
-                const initial = row.display_name?.[0]?.toUpperCase() ?? "?";
-                return (
-                  <div
-                    key={row.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "36px 1fr 64px 64px 64px 72px",
-                      gap: "0 12px",
-                      alignItems: "center",
-                      padding: "12px 16px",
-                      borderRadius: 10,
-                      border: isMe ? "1px solid #f0c040" : "1px solid #1e4a1e",
-                      background: isMe ? "rgba(240,192,64,.04)" : "rgba(255,255,255,.02)",
-                    }}
-                  >
-                    {/* Rank */}
-                    <div style={{
-                      fontSize: 14, fontWeight: 700,
-                      color: i === 0 ? "#f0c040" : i === 1 ? "#d8d8d8" : i === 2 ? "#c87a3a" : "#3a5a3a",
-                    }}>
-                      {i + 1}
-                    </div>
+            {error && (
+              <div style={{ color: "#e05c5c", fontSize: 14, padding: "12px 0" }}>{error}</div>
+            )}
 
-                    {/* Name + avatar */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                      {row.avatar_url ? (
-                        <img
-                          src={row.avatar_url}
-                          alt={row.display_name}
-                          style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                        />
-                      ) : (
+            {loading && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} style={{
+                    height: 52, borderRadius: 10,
+                    background: "rgba(255,255,255,.03)", border: "1px solid #1a3a1a",
+                  }} />
+                ))}
+              </div>
+            )}
+
+            {!loading && !error && rows.length === 0 && (
+              <div style={{ color: "#3a5a3a", fontSize: 14, textAlign: "center", padding: "40px 0" }}>
+                No ranked games yet. Play a full game with 4 or 6 human players to appear here.
+              </div>
+            )}
+
+            {!loading && rows.length > 0 && (
+              <>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "36px 1fr 64px 64px 64px 72px",
+                  gap: "0 12px",
+                  padding: "0 16px 8px",
+                  color: "#3a5a3a",
+                  fontSize: 11, letterSpacing: 1, textTransform: "uppercase",
+                }}>
+                  <div>#</div>
+                  <div>Player</div>
+                  <div style={{ textAlign: "right" }}>Games</div>
+                  <div style={{ textAlign: "right" }}>Win%</div>
+                  <div style={{ textAlign: "right" }}>Bid%</div>
+                  <div style={{ textAlign: "right" }}>Avg Score</div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {rows.map((row, i) => {
+                    const isMe = row.id === user?.id;
+                    const initial = row.display_name?.[0]?.toUpperCase() ?? "?";
+                    return (
+                      <div
+                        key={row.id}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "36px 1fr 64px 64px 64px 72px",
+                          gap: "0 12px",
+                          alignItems: "center",
+                          padding: "12px 16px",
+                          borderRadius: 10,
+                          border: isMe ? "1px solid #f0c040" : "1px solid #1e4a1e",
+                          background: isMe ? "rgba(240,192,64,.04)" : "rgba(255,255,255,.02)",
+                        }}
+                      >
                         <div style={{
-                          width: 32, height: 32, borderRadius: "50%",
-                          background: "#1e4a1e", flexShrink: 0,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          color: "#f0c040", fontSize: 13, fontWeight: 700,
+                          fontSize: 14, fontWeight: 700,
+                          color: i === 0 ? "#f0c040" : i === 1 ? "#d8d8d8" : i === 2 ? "#c87a3a" : "#3a5a3a",
                         }}>
-                          {initial}
+                          {i + 1}
                         </div>
-                      )}
-                      <div style={{
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        color: isMe ? "#f0c040" : "#f0e8d0",
-                        fontSize: 14, fontWeight: isMe ? 700 : 400,
-                      }}>
-                        {isMe ? "You" : row.display_name}
-                        {isMe && (
-                          <span style={{ color: "#3a5a3a", fontSize: 11, fontWeight: 400, marginLeft: 8 }}>
-                            ({row.display_name})
-                          </span>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* Stats */}
-                    <div style={{ textAlign: "right", fontSize: 14, color: "#e8dfc8" }}>{row.games_played}</div>
-                    <div style={{ textAlign: "right", fontSize: 14, color: "#4fc3a1" }}>{fmt(row.win_pct, true)}</div>
-                    <div style={{ textAlign: "right", fontSize: 14, color: "#8aab8a" }}>{fmt(row.bid_rate, true)}</div>
-                    <div style={{ textAlign: "right", fontSize: 14, color: "#8aab8a" }}>{fmt(row.avg_score)}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                          {row.avatar_url ? (
+                            <img
+                              src={row.avatar_url}
+                              alt={row.display_name}
+                              style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: 32, height: 32, borderRadius: "50%",
+                              background: "#1e4a1e", flexShrink: 0,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "#f0c040", fontSize: 13, fontWeight: 700,
+                            }}>
+                              {initial}
+                            </div>
+                          )}
+                          <div style={{
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            color: isMe ? "#f0c040" : "#f0e8d0",
+                            fontSize: 14, fontWeight: isMe ? 700 : 400,
+                          }}>
+                            {isMe ? "You" : row.display_name}
+                            {isMe && (
+                              <span style={{ color: "#3a5a3a", fontSize: 11, fontWeight: 400, marginLeft: 8 }}>
+                                ({row.display_name})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: "right", fontSize: 14, color: "#e8dfc8" }}>{row.games_played}</div>
+                        <div style={{ textAlign: "right", fontSize: 14, color: "#4fc3a1" }}>{fmt(row.win_pct, true)}</div>
+                        <div style={{ textAlign: "right", fontSize: 14, color: "#8aab8a" }}>{fmt(row.bid_rate, true)}</div>
+                        <div style={{ textAlign: "right", fontSize: 14, color: "#8aab8a" }}>{fmt(row.avg_score)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── My Stats tab ─────────────────────────────────────────────────── */}
+        {activeTab === "mystats" && (
+          <>
+            {statsLoading && (
+              <div style={{ color: "#3a5a3a", fontSize: 14, padding: "40px 0", textAlign: "center" }}>
+                Loading…
+              </div>
+            )}
+
+            {!statsLoading && myStats && myStats.games_played === 0 && (
+              <div style={{ color: "#3a5a3a", fontSize: 14, textAlign: "center", padding: "40px 0" }}>
+                No ranked games yet. Play a full human game to see your stats here.
+              </div>
+            )}
+
+            {!statsLoading && myStats && myStats.games_played > 0 && (
+              <>
+                {/* Ranking callout */}
+                {myRank >= 0 && (
+                  <div style={{
+                    background: "rgba(240,192,64,.06)", border: "1px solid #3a3010",
+                    borderRadius: 10, padding: "12px 18px", marginBottom: 28,
+                    color: "#f0c040", fontSize: 14, textAlign: "center",
+                  }}>
+                    You rank <strong>#{myRank + 1}</strong> of {rows.length} player{rows.length !== 1 ? "s" : ""} by win rate
                   </div>
-                );
-              })}
-            </div>
+                )}
+
+                {/* Radar chart */}
+                <div style={{
+                  background: "rgba(255,255,255,.02)", border: "1px solid #1e4a1e",
+                  borderRadius: 12, padding: "24px", marginBottom: 24,
+                }}>
+                  <div style={{
+                    fontFamily: "'Playfair Display',serif", color: "#f0c040",
+                    fontSize: 15, marginBottom: 16,
+                  }}>
+                    Performance Profile
+                  </div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
+                      <PolarGrid stroke="#1e4a1e" />
+                      <PolarAngleAxis
+                        dataKey="metric"
+                        tick={{ fill: "#8aab8a", fontSize: 13, fontFamily: "Georgia,serif" }}
+                      />
+                      <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                      <Radar
+                        dataKey="value"
+                        stroke="#f0c040"
+                        fill="#f0c040"
+                        fillOpacity={0.15}
+                        strokeWidth={2}
+                      />
+                      <Tooltip
+                        formatter={(val, name, props) => [`${val}%`, props.payload.metric]}
+                        contentStyle={{
+                          background: "#0d2b0d", border: "1px solid #2a5c2a",
+                          borderRadius: 8, fontFamily: "Georgia,serif", fontSize: 13,
+                        }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                  <div style={{ color: "#3a5a3a", fontSize: 11, textAlign: "center", marginTop: 8 }}>
+                    All metrics normalized 0–100. Avg Score scaled against 15-point max.
+                  </div>
+                </div>
+
+                {/* Stat cards */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10, marginBottom: 12 }}>
+                  <StatCard label="Games" value={myStats.games_played} />
+                  <StatCard label="Wins" value={myStats.wins} />
+                  <StatCard label="Losses" value={myStats.games_played - myStats.wins} />
+                  <StatCard label="Win Rate" value={fmt(myStats.win_pct, true)} />
+                  <StatCard
+                    label="Bid Rate"
+                    value={fmt(myStats.bid_rate, true)}
+                    sub={myStats.bid_attempts > 0 ? `${myStats.bid_successes}/${myStats.bid_attempts} bids` : null}
+                  />
+                  <StatCard
+                    label="Avg Score"
+                    value={myStats.avg_score != null ? myStats.avg_score : "—"}
+                    sub="points per game"
+                  />
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
