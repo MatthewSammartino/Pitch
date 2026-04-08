@@ -4,10 +4,10 @@ import { useAuth } from "../../hooks/useAuth";
 
 const NAV_LINKS = [
   { label: "Play",        to: "/dashboard" },
+  { label: "Groups",      to: "/groups" },
+  { label: "Leaderboard", to: "/leaderboard" },
   { label: "News",        to: "/news" },
   { label: "Store",       to: "/store" },
-  { label: "Settings",    to: "/settings" },
-  { label: "Leaderboard", to: "/leaderboard" },
   { label: "Help",        to: "/help" },
 ];
 

@@ -9,6 +9,7 @@ import GameLobbyPage  from "./pages/GameLobbyPage";
 import GameRoomPage   from "./pages/GameRoomPage";
 import StubPage         from "./pages/StubPage";
 import LeaderboardPage  from "./pages/LeaderboardPage";
+import GroupsPage       from "./pages/GroupsPage";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
 
       {/* Protected */}
       <Route path="/dashboard"         element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/groups"            element={<ProtectedRoute><GroupsPage /></ProtectedRoute>} />
       <Route path="/group/:slug"        element={<ProtectedRoute><GroupPage /></ProtectedRoute>} />
       <Route path="/profile"            element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/lobby/:sessionId"   element={<ProtectedRoute><GameLobbyPage /></ProtectedRoute>} />
