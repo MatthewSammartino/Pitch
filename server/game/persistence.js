@@ -56,6 +56,7 @@ async function saveRoundPoints(roundId, breakdown, seats) {
 /**
  * Finalize a session: update status, final scores, timestamps.
  * Also writes each human player's final_score to session_players.
+ * Distributes chip payouts if the session had a wager.
  */
 async function finalizeSession(sessionId, teamScores, seats = []) {
   await pool.query(
@@ -73,6 +74,71 @@ async function finalizeSession(sessionId, teamScores, seats = []) {
        WHERE session_id = $2 AND user_id = $3`,
       [teamScores[s.team], sessionId, s.userId]
     );
+  }
+
+  // ── Chip payouts ──────────────────────────────────────────────────────────
+  try {
+    const { rows: sessionRows } = await pool.query(
+      "SELECT wager_base, wager_per_set FROM game_sessions WHERE id = $1",
+      [sessionId]
+    );
+    const { wager_base: wagerBase, wager_per_set: wagerPerSet } = sessionRows[0] || {};
+    if (!wagerBase && !wagerPerSet) return; // no wager — skip
+
+    // Determine winning team (highest score)
+    const winningTeam = teamScores.reduce(
+      (best, score, team) => (score > teamScores[best] ? team : best),
+      0
+    );
+
+    // Count sets per team (bid_made = false, join bidder → session_players to get team)
+    const { rows: setRows } = await pool.query(
+      `SELECT sp.team, COUNT(*)::int AS set_count
+       FROM rounds r
+       JOIN session_players sp
+         ON sp.user_id = r.bidder_id AND sp.session_id = r.session_id
+       WHERE r.session_id = $1 AND r.bid_made = false
+       GROUP BY sp.team`,
+      [sessionId]
+    );
+    const setsPerTeam = {};
+    for (const row of setRows) setsPerTeam[row.team] = row.set_count;
+
+    const humanWinners = humanSeats.filter((s) => s.team === winningTeam);
+    const humanLosers  = humanSeats.filter((s) => s.team !== winningTeam);
+    if (!humanWinners.length || !humanLosers.length) return; // edge case: all bots on one side
+
+    // Each loser forfeits: wager_base (already deducted at start) + wager_per_set × set_count
+    const loserForfeitures = humanLosers.map((s) => {
+      const sets = setsPerTeam[s.team] || 0;
+      return wagerBase + wagerPerSet * sets;
+    });
+    const totalLoserPool = loserForfeitures.reduce((a, b) => a + b, 0);
+    const winnerShare = Math.floor(totalLoserPool / humanWinners.length);
+
+    await pool.query("BEGIN");
+    // Deduct per-set penalty from losers (base already taken at game start)
+    for (const s of humanLosers) {
+      const additional = wagerPerSet * (setsPerTeam[s.team] || 0);
+      if (additional > 0) {
+        await pool.query(
+          "UPDATE users SET chip_balance = chip_balance - $1 WHERE id = $2",
+          [additional, s.userId]
+        );
+      }
+    }
+    // Credit winners: refund base + share of loser pool
+    for (const s of humanWinners) {
+      const gain = wagerBase + winnerShare;
+      await pool.query(
+        "UPDATE users SET chip_balance = chip_balance + $1 WHERE id = $2",
+        [gain, s.userId]
+      );
+    }
+    await pool.query("COMMIT");
+  } catch (err) {
+    await pool.query("ROLLBACK").catch(() => {});
+    console.error("Chip payout error for session", sessionId, ":", err.message);
   }
 }
 

@@ -44,7 +44,7 @@ module.exports = function lobbySocket(nsp) {
             });
           }
           const s = rows[0];
-          lobby = GameStore.createLobby(s.id, s.group_id, s.variant, s.created_by, s.short_code);
+          lobby = GameStore.createLobby(s.id, s.group_id, s.variant, s.created_by, s.short_code, s.is_public, s.wager_base || 0, s.wager_per_set || 0);
           socket.join(sessionId);
           socket.emit("lobby:state", lobby.publicState());
         }).catch(() => socket.emit("lobby:error", { message: "Failed to load lobby." }));
@@ -145,6 +145,37 @@ module.exports = function lobbySocket(nsp) {
         return socket.emit("lobby:error", { message: "Already started." });
 
       try {
+        // ── Chip deduction (if wagered) ───────────────────────────────────────
+        if (lobby.wagerBase > 0) {
+          const humanUserIds = lobby.seats
+            .filter((s) => s && !s.isBot)
+            .map((s) => s.userId);
+
+          if (humanUserIds.length > 0) {
+            await pool.query("BEGIN");
+            try {
+              const { rows: broke } = await pool.query(
+                `SELECT id FROM users WHERE id = ANY($1::uuid[]) AND chip_balance < $2`,
+                [humanUserIds, lobby.wagerBase]
+              );
+              if (broke.length > 0) {
+                await pool.query("ROLLBACK");
+                return socket.emit("lobby:error", {
+                  message: `One or more players don't have enough chips (need ${lobby.wagerBase}).`,
+                });
+              }
+              await pool.query(
+                `UPDATE users SET chip_balance = chip_balance - $1 WHERE id = ANY($2::uuid[])`,
+                [lobby.wagerBase, humanUserIds]
+              );
+              await pool.query("COMMIT");
+            } catch (chipErr) {
+              await pool.query("ROLLBACK");
+              throw chipErr;
+            }
+          }
+        }
+
         await pool.query(
           "UPDATE game_sessions SET status = 'playing', started_at = NOW() WHERE id = $1",
           [sessionId]

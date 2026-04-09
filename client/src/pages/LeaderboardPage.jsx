@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
@@ -8,6 +8,7 @@ import {
 } from "recharts";
 
 const MEMBER_COLORS = ["#4fc3a1", "#e05c5c", "#8aab8a", "#c090a0", "#7090c0", "#c87a3a"];
+const MAX_COMPARED = 5;
 
 function fmt(val, pct = false) {
   if (val == null) return "—";
@@ -58,60 +59,75 @@ export default function LeaderboardPage() {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
   const [activeTab, setActiveTab] = useState("rankings");
-  // hiddenPlayers: Set of IDs to hide on the radar. Initialised to hide everyone except "you".
-  const [hiddenPlayers, setHiddenPlayers] = useState(new Set());
+
+  // Search-to-add state
+  const [comparedPlayers, setComparedPlayers] = useState([]);
+  const [searchTerm, setSearchTerm]           = useState("");
+  const [searchOpen, setSearchOpen]           = useState(false);
+  const searchRef = useRef(null);
 
   useEffect(() => {
     api.get("/api/stats/leaderboard")
-      .then((data) => {
-        setRows(data);
-        // Default: hide all players except the current user
-        if (user) {
-          setHiddenPlayers(new Set(data.filter((r) => r.id !== user.id).map((r) => r.id)));
-        }
-      })
+      .then((data) => setRows(data))
       .catch(() => setError("Failed to load leaderboard."))
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
   const myRank = rows.findIndex((r) => r.id === user?.id);
   const myRow  = myRank >= 0 ? rows[myRank] : null;
 
-  // Multi-series radar data — one value per player per metric
-  const radarData = rows.length > 0 ? [
-    {
-      metric: "Win %",
-      ...Object.fromEntries(rows.map((r) => [r.id, r.win_pct  != null ? Math.round(r.win_pct * 100)            : 0])),
-    },
-    {
-      metric: "Bid %",
-      ...Object.fromEntries(rows.map((r) => [r.id, r.bid_rate != null ? Math.round(r.bid_rate * 100)           : 0])),
-    },
-    {
-      metric: "Avg Score",
-      ...Object.fromEntries(rows.map((r) => [r.id, r.avg_score != null ? Math.round((r.avg_score / 15) * 100) : 0])),
-    },
-  ] : [];
-
-  function togglePlayer(id) {
-    if (id === user?.id) return; // current user always visible
-    setHiddenPlayers((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  // Map each non-me player to a color from the palette
-  const otherRows = rows.filter((r) => r.id !== user?.id);
-
   function colorFor(id) {
     if (id === user?.id) return "#f0c040";
-    const idx = otherRows.findIndex((r) => r.id === id);
+    const idx = comparedPlayers.findIndex((p) => p.id === id);
     return MEMBER_COLORS[idx % MEMBER_COLORS.length];
   }
+
+  function addPlayer(row) {
+    if (comparedPlayers.length >= MAX_COMPARED) return;
+    if (comparedPlayers.find((p) => p.id === row.id)) return;
+    setComparedPlayers((prev) => [...prev, row]);
+    setSearchTerm("");
+    setSearchOpen(false);
+  }
+
+  function removePlayer(id) {
+    setComparedPlayers((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  const searchResults = searchTerm.length > 0
+    ? rows.filter((r) =>
+        r.id !== user?.id &&
+        !comparedPlayers.find((p) => p.id === r.id) &&
+        r.display_name.toLowerCase().includes(searchTerm.toLowerCase())
+      ).slice(0, 6)
+    : [];
+
+  // Build 6-metric radar data keyed by user ID
+  const radarPlayers = myRow ? [myRow, ...comparedPlayers] : comparedPlayers;
+
+  function metricVals(fn) {
+    return Object.fromEntries(radarPlayers.map((r) => [r.id, fn(r)]));
+  }
+
+  const radarData = radarPlayers.length > 0 ? [
+    { metric: "Win %",        ...metricVals((r) => r.win_pct      != null ? Math.round(r.win_pct * 100)                        : 0) },
+    { metric: "Bid %",        ...metricVals((r) => r.bid_rate     != null ? Math.round(r.bid_rate * 100)                       : 0) },
+    { metric: "Avg Score",    ...metricVals((r) => r.avg_score    != null ? Math.round((r.avg_score / 15) * 100)               : 0) },
+    { metric: "Recent Form",  ...metricVals((r) => r.recent_form  != null ? Math.round(r.recent_form * 100)                    : 0) },
+    { metric: "Loss Control", ...metricVals((r) => r.avg_loss_margin != null ? Math.round((1 - r.avg_loss_margin / 15) * 100)  : 0) },
+    { metric: "Clutch",       ...metricVals((r) => r.clutch_rate  != null ? Math.round(r.clutch_rate * 100)                    : 0) },
+  ] : [];
 
   return (
     <div style={{
@@ -295,34 +311,106 @@ export default function LeaderboardPage() {
                     Performance Comparison
                   </div>
 
-                  {/* Player toggle chips */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-                    {rows.map((r) => {
-                      const isMe = r.id === user?.id;
-                      const color = colorFor(r.id);
-                      const hidden = !isMe && hiddenPlayers.has(r.id);
+                  {/* You chip (always present) */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "4px 12px", borderRadius: 16,
+                      border: "1px solid #f0c040",
+                      background: "rgba(240,192,64,.12)",
+                      color: "#f0c040", fontSize: 12,
+                      fontFamily: "Georgia,serif",
+                    }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f0c040" }} />
+                      You
+                    </div>
+
+                    {comparedPlayers.map((p) => {
+                      const color = colorFor(p.id);
                       return (
-                        <button
-                          key={r.id}
-                          onClick={() => togglePlayer(r.id)}
+                        <div
+                          key={p.id}
                           style={{
                             display: "flex", alignItems: "center", gap: 6,
                             padding: "4px 12px", borderRadius: 16,
-                            border: `1px solid ${hidden ? "#2a4a2a" : color}`,
-                            background: hidden ? "transparent" : `${color}18`,
-                            color: hidden ? "#3a5a3a" : color,
-                            fontSize: 12, cursor: isMe ? "default" : "pointer",
+                            border: `1px solid ${color}`,
+                            background: `${color}18`,
+                            color, fontSize: 12,
                             fontFamily: "Georgia,serif",
                           }}
                         >
-                          <div style={{
-                            width: 8, height: 8, borderRadius: "50%",
-                            background: hidden ? "#2a4a2a" : color,
-                          }} />
-                          {isMe ? "You" : r.display_name}
-                        </button>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+                          {p.display_name}
+                          <button
+                            onClick={() => removePlayer(p.id)}
+                            style={{
+                              background: "none", border: "none", cursor: "pointer",
+                              color, fontSize: 14, lineHeight: 1, padding: "0 0 0 2px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
                       );
                     })}
+
+                    {/* Search-to-add */}
+                    {comparedPlayers.length < MAX_COMPARED && (
+                      <div ref={searchRef} style={{ position: "relative" }}>
+                        <input
+                          value={searchTerm}
+                          onChange={(e) => { setSearchTerm(e.target.value); setSearchOpen(true); }}
+                          onFocus={() => setSearchOpen(true)}
+                          placeholder="+ Compare player…"
+                          style={{
+                            padding: "4px 12px", borderRadius: 16,
+                            border: "1px solid #2a4a2a",
+                            background: "transparent",
+                            color: "#8aab8a", fontSize: 12,
+                            fontFamily: "Georgia,serif",
+                            outline: "none", width: 150,
+                          }}
+                        />
+                        {searchOpen && searchResults.length > 0 && (
+                          <div style={{
+                            position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 50,
+                            background: "#0d2b0d", border: "1px solid #2a5c2a",
+                            borderRadius: 8, overflow: "hidden", minWidth: 180,
+                          }}>
+                            {searchResults.map((r) => (
+                              <div
+                                key={r.id}
+                                onMouseDown={() => addPlayer(r)}
+                                style={{
+                                  padding: "8px 14px", cursor: "pointer",
+                                  color: "#f0e8d0", fontSize: 13,
+                                  borderBottom: "1px solid #1e3a1e",
+                                  fontFamily: "Georgia,serif",
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,.05)"}
+                                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                              >
+                                {r.display_name}
+                                <span style={{ color: "#3a5a3a", fontSize: 11, marginLeft: 8 }}>
+                                  {fmt(r.win_pct, true)} WR
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {searchOpen && searchTerm.length > 0 && searchResults.length === 0 && (
+                          <div style={{
+                            position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 50,
+                            background: "#0d2b0d", border: "1px solid #2a5c2a",
+                            borderRadius: 8, padding: "8px 14px",
+                            color: "#3a5a3a", fontSize: 12,
+                            fontFamily: "Georgia,serif",
+                          }}>
+                            No players found
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <ResponsiveContainer width="100%" height={300}>
@@ -330,12 +418,11 @@ export default function LeaderboardPage() {
                       <PolarGrid stroke="#1e4a1e" />
                       <PolarAngleAxis
                         dataKey="metric"
-                        tick={{ fill: "#8aab8a", fontSize: 13, fontFamily: "Georgia,serif" }}
+                        tick={{ fill: "#8aab8a", fontSize: 12, fontFamily: "Georgia,serif" }}
                       />
                       <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                      {rows.map((r) => {
+                      {radarPlayers.map((r) => {
                         const isMe = r.id === user?.id;
-                        if (!isMe && hiddenPlayers.has(r.id)) return null;
                         const color = colorFor(r.id);
                         return (
                           <Radar
@@ -359,7 +446,7 @@ export default function LeaderboardPage() {
                     </RadarChart>
                   </ResponsiveContainer>
                   <div style={{ color: "#3a5a3a", fontSize: 11, textAlign: "center", marginTop: 8 }}>
-                    All metrics normalized 0–100. Avg Score scaled against 15-point max.
+                    All metrics normalized 0–100. Avg Score scaled to 15-pt max. Loss Control = inverse avg loss margin.
                   </div>
                 </div>
 
@@ -378,6 +465,26 @@ export default function LeaderboardPage() {
                     label="Avg Score"
                     value={myRow.avg_score != null ? myRow.avg_score : "—"}
                     sub="points per game"
+                  />
+                  <StatCard
+                    label="Recent Form"
+                    value={fmt(myRow.recent_form, true)}
+                    sub="last 10 games"
+                  />
+                  <StatCard
+                    label="Clutch Rate"
+                    value={fmt(myRow.clutch_rate, true)}
+                    sub="≤3 pt games"
+                  />
+                  <StatCard
+                    label="Avg Win Margin"
+                    value={myRow.avg_win_margin != null ? myRow.avg_win_margin : "—"}
+                    sub="points"
+                  />
+                  <StatCard
+                    label="Avg Loss Margin"
+                    value={myRow.avg_loss_margin != null ? myRow.avg_loss_margin : "—"}
+                    sub="points"
                   />
                 </div>
               </>

@@ -263,6 +263,24 @@ export default function GameLobbyPage() {
             : "Connecting to lobby…"}
         </p>
 
+        {/* Wager info */}
+        {lobby && lobby.wagerBase > 0 && (
+          <div style={{
+            background: "rgba(240,192,64,.06)", border: "1px solid #3a3010",
+            borderRadius: 8, padding: "10px 16px", marginBottom: 20,
+            textAlign: "center",
+          }}>
+            <span style={{ color: "#f0c040", fontSize: 14, fontWeight: 600 }}>
+              🪙 Wager: {lobby.wagerBase} chips
+            </span>
+            {lobby.wagerPerSet > 0 && (
+              <span style={{ color: "#8aab8a", fontSize: 13, marginLeft: 10 }}>
+                + {lobby.wagerPerSet} per set
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Room code */}
         {lobby?.shortCode && (
           <div style={{ textAlign: "center", marginBottom: 20 }}>

@@ -84,6 +84,9 @@ export default function DashboardPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [variant, setVariant]       = useState(4);
   const [isPublic, setIsPublic]     = useState(false);
+  const [wagerBase, setWagerBase]   = useState(0);
+  const [wagerPerSet, setWagerPerSet] = useState(0);
+  const [chipBalance, setChipBalance] = useState(null);
   const [creating, setCreating]     = useState(false);
 
   // Join Lobby state
@@ -101,6 +104,14 @@ export default function DashboardPage() {
   const [queueBusy, setQueueBusy]             = useState(false);
 
   useEffect(() => {
+    if (!user?.is_guest) {
+      api.get("/api/chips/balance")
+        .then((d) => setChipBalance(d.balance))
+        .catch(() => {});
+    }
+  }, [user]);
+
+  useEffect(() => {
     function fetchPublicLobbies() {
       api.get("/api/sessions/public")
         .then(setPublicLobbies)
@@ -114,7 +125,7 @@ export default function DashboardPage() {
 
   function createLobby() {
     setCreating(true);
-    api.post("/api/sessions", { variant, is_public: isPublic })
+    api.post("/api/sessions", { variant, is_public: isPublic, wager_base: wagerBase, wager_per_set: wagerPerSet })
       .then((s) => navigate(`/lobby/${s.id}`))
       .catch(() => setCreating(false));
   }
@@ -282,11 +293,67 @@ export default function DashboardPage() {
                       {isPublic ? "Public — visible in Open Lobbies" : "Private — invite only"}
                     </span>
                   </button>
+                  {!user?.is_guest && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ color: "#5a7a5a", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>
+                        Wager (chips)
+                      </div>
+                      <div style={{ marginBottom: 6 }}>
+                        <div style={{ color: "#3a5a3a", fontSize: 11, marginBottom: 4 }}>Base game</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {[0, 50, 100, 250, 500].map((v) => (
+                            <button
+                              key={v}
+                              onClick={() => setWagerBase(v)}
+                              style={{
+                                padding: "4px 12px", borderRadius: 10,
+                                border: `1px solid ${wagerBase === v ? "#f0c040" : "#2a5c2a"}`,
+                                background: wagerBase === v ? "rgba(240,192,64,.12)" : "transparent",
+                                color: wagerBase === v ? "#f0c040" : "#5a7a5a",
+                                fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
+                              }}
+                            >
+                              {v === 0 ? "None" : v}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#3a5a3a", fontSize: 11, marginBottom: 4 }}>Per set</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {[0, 25, 50, 100].map((v) => (
+                            <button
+                              key={v}
+                              onClick={() => setWagerPerSet(v)}
+                              style={{
+                                padding: "4px 12px", borderRadius: 10,
+                                border: `1px solid ${wagerPerSet === v ? "#4fc3a1" : "#2a5c2a"}`,
+                                background: wagerPerSet === v ? "rgba(79,195,161,.1)" : "transparent",
+                                color: wagerPerSet === v ? "#4fc3a1" : "#5a7a5a",
+                                fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
+                              }}
+                            >
+                              {v === 0 ? "None" : v}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {wagerBase > 0 && chipBalance !== null && (
+                        <div style={{
+                          marginTop: 8, fontSize: 11,
+                          color: chipBalance < wagerBase ? "#e05c5c" : "#3a5a3a",
+                        }}>
+                          Your balance: 🪙 {chipBalance.toLocaleString()}
+                          {chipBalance < wagerBase && " — insufficient chips"}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <Btn gold onClick={createLobby} disabled={creating}>
+                    <Btn gold onClick={createLobby} disabled={creating || (wagerBase > 0 && chipBalance !== null && chipBalance < wagerBase)}>
                       {creating ? "Creating…" : "Create →"}
                     </Btn>
-                    <Btn onClick={() => { setCreateOpen(false); setIsPublic(false); }}>Cancel</Btn>
+                    <Btn onClick={() => { setCreateOpen(false); setIsPublic(false); setWagerBase(0); setWagerPerSet(0); }}>Cancel</Btn>
                   </div>
                 </div>
               )}

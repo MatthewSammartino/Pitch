@@ -7,13 +7,15 @@ const GameStateMachine = require("./GameStateMachine");
 // ── Lobby state ─────────────────────────────────────────────────────────────
 
 class LobbyState {
-  constructor(sessionId, groupId, variant, createdBy, shortCode, isPublic = false) {
+  constructor(sessionId, groupId, variant, createdBy, shortCode, isPublic = false, wagerBase = 0, wagerPerSet = 0) {
     this.sessionId  = sessionId;
     this.groupId    = groupId;
     this.variant    = variant;
     this.createdBy  = createdBy;
     this.shortCode  = shortCode || null;
     this.isPublic   = isPublic;
+    this.wagerBase  = wagerBase;
+    this.wagerPerSet = wagerPerSet;
     this.status     = "waiting";
     this.seats      = Array(variant).fill(null);
     this.teamNames  = variant === 6 ? ["A", "B", "C"] : ["A", "B"];
@@ -78,6 +80,8 @@ class LobbyState {
       status:      this.status,
       createdBy:   this.createdBy,
       shortCode:   this.shortCode,
+      wagerBase:   this.wagerBase,
+      wagerPerSet: this.wagerPerSet,
       seats:       this.seats,
       filledCount: this.filledCount(),
       teamNames:   this.teamNames,
@@ -94,8 +98,8 @@ const games   = new Map(); // sessionId → GameStateMachine
 
 module.exports = {
   // Lobby
-  createLobby(sessionId, groupId, variant, createdBy, shortCode, isPublic = false) {
-    const lobby = new LobbyState(sessionId, groupId, variant, createdBy, shortCode, isPublic);
+  createLobby(sessionId, groupId, variant, createdBy, shortCode, isPublic = false, wagerBase = 0, wagerPerSet = 0) {
+    const lobby = new LobbyState(sessionId, groupId, variant, createdBy, shortCode, isPublic, wagerBase, wagerPerSet);
     lobbies.set(sessionId, lobby);
     return lobby;
   },

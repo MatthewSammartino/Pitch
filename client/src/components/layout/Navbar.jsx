@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { api } from "../../lib/api";
 
 const NAV_LINKS = [
   { label: "Play",        to: "/dashboard" },
   { label: "Groups",      to: "/groups" },
   { label: "Leaderboard", to: "/leaderboard" },
   { label: "News",        to: "/news" },
-  { label: "Store",       to: "/store" },
+  { label: "Chips",       to: "/chips" },
   { label: "Help",        to: "/help" },
 ];
 
@@ -112,6 +113,14 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [chipBalance, setChipBalance] = useState(null);
+
+  useEffect(() => {
+    if (!user || user.is_guest) { setChipBalance(null); return; }
+    api.get("/api/chips/balance")
+      .then((d) => setChipBalance(d.balance))
+      .catch(() => {});
+  }, [user]);
 
   const initial = user?.display_name?.[0]?.toUpperCase() || "?";
 
@@ -139,6 +148,23 @@ export default function Navbar() {
         {!user ? (
           <a href="/api/auth/google" style={S.signInBtn}>Sign In</a>
         ) : (
+          <>
+          {chipBalance !== null && (
+            <Link
+              to="/chips"
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "5px 12px", borderRadius: 14,
+                border: "1px solid #3a5c1a",
+                background: "rgba(240,192,64,.06)",
+                color: "#f0c040", fontSize: 13,
+                textDecoration: "none", fontFamily: "Georgia,serif",
+                whiteSpace: "nowrap",
+              }}
+            >
+              🪙 {chipBalance.toLocaleString()}
+            </Link>
+          )}
           <div style={{ position: "relative" }}>
             {user.avatar_url ? (
               <img
@@ -191,6 +217,7 @@ export default function Navbar() {
               </>
             )}
           </div>
+          </>
         )}
       </div>
     </nav>
