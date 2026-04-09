@@ -301,7 +301,7 @@ export default function DashboardPage() {
                       <div style={{ marginBottom: 6 }}>
                         <div style={{ color: "#3a5a3a", fontSize: 11, marginBottom: 4 }}>Base game</div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {[0, 50, 100, 250, 500].map((v) => (
+                          {[0, 1, 2, 5, 10].map((v) => (
                             <button
                               key={v}
                               onClick={() => setWagerBase(v)}
@@ -321,7 +321,7 @@ export default function DashboardPage() {
                       <div>
                         <div style={{ color: "#3a5a3a", fontSize: 11, marginBottom: 4 }}>Per set</div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {[0, 25, 50, 100].map((v) => (
+                          {[0, 1, 2, 5].map((v) => (
                             <button
                               key={v}
                               onClick={() => setWagerPerSet(v)}

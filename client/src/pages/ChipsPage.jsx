@@ -34,7 +34,7 @@ export default function ChipsPage() {
       .then((d) => {
         setBalance(d.balance);
         setNextClaim(new Date(Date.now() + 24 * 3600 * 1000).toISOString());
-        setMessage(`+500 chips claimed! New balance: ${d.balance.toLocaleString()}`);
+        setMessage(`+${d.claimed} chips claimed! New balance: ${d.balance.toLocaleString()}`);
       })
       .catch((err) => {
         const msg = err?.message || "Failed to claim.";
