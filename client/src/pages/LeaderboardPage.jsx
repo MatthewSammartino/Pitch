@@ -7,6 +7,8 @@ import {
   ResponsiveContainer, Tooltip,
 } from "recharts";
 
+const MEMBER_COLORS = ["#4fc3a1", "#e05c5c", "#8aab8a", "#c090a0", "#7090c0", "#c87a3a"];
+
 function fmt(val, pct = false) {
   if (val == null) return "—";
   if (pct) return `${Math.round(val * 100)}%`;
@@ -56,34 +58,60 @@ export default function LeaderboardPage() {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
   const [activeTab, setActiveTab] = useState("rankings");
-  const [myStats, setMyStats]     = useState(null);
-  const [statsLoading, setStatsLoading] = useState(false);
+  // hiddenPlayers: Set of IDs to hide on the radar. Initialised to hide everyone except "you".
+  const [hiddenPlayers, setHiddenPlayers] = useState(new Set());
 
   useEffect(() => {
     api.get("/api/stats/leaderboard")
-      .then(setRows)
+      .then((data) => {
+        setRows(data);
+        // Default: hide all players except the current user
+        if (user) {
+          setHiddenPlayers(new Set(data.filter((r) => r.id !== user.id).map((r) => r.id)));
+        }
+      })
       .catch(() => setError("Failed to load leaderboard."))
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (activeTab !== "mystats" || myStats || statsLoading || !user) return;
-    setStatsLoading(true);
-    api.get("/api/stats/me")
-      .then(setMyStats)
-      .catch(() => {})
-      .finally(() => setStatsLoading(false));
-  }, [activeTab, myStats, statsLoading, user]);
-
-  // Compute user's rank from leaderboard data
   const myRank = rows.findIndex((r) => r.id === user?.id);
+  const myRow  = myRank >= 0 ? rows[myRank] : null;
 
-  // Radar data (normalized 0–100)
-  const radarData = myStats ? [
-    { metric: "Win %",     value: myStats.win_pct  != null ? Math.round(myStats.win_pct * 100)            : 0 },
-    { metric: "Bid %",     value: myStats.bid_rate != null ? Math.round(myStats.bid_rate * 100)            : 0 },
-    { metric: "Avg Score", value: myStats.avg_score != null ? Math.round((myStats.avg_score / 15) * 100)  : 0 },
+  // Multi-series radar data — one value per player per metric
+  const radarData = rows.length > 0 ? [
+    {
+      metric: "Win %",
+      ...Object.fromEntries(rows.map((r) => [r.id, r.win_pct  != null ? Math.round(r.win_pct * 100)            : 0])),
+    },
+    {
+      metric: "Bid %",
+      ...Object.fromEntries(rows.map((r) => [r.id, r.bid_rate != null ? Math.round(r.bid_rate * 100)           : 0])),
+    },
+    {
+      metric: "Avg Score",
+      ...Object.fromEntries(rows.map((r) => [r.id, r.avg_score != null ? Math.round((r.avg_score / 15) * 100) : 0])),
+    },
   ] : [];
+
+  function togglePlayer(id) {
+    if (id === user?.id) return; // current user always visible
+    setHiddenPlayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Map each non-me player to a color from the palette
+  const otherRows = rows.filter((r) => r.id !== user?.id);
+
+  function colorFor(id) {
+    if (id === user?.id) return "#f0c040";
+    const idx = otherRows.findIndex((r) => r.id === id);
+    return MEMBER_COLORS[idx % MEMBER_COLORS.length];
+  }
 
   return (
     <div style={{
@@ -232,30 +260,28 @@ export default function LeaderboardPage() {
         {/* ── My Stats tab ─────────────────────────────────────────────────── */}
         {activeTab === "mystats" && (
           <>
-            {statsLoading && (
+            {loading && (
               <div style={{ color: "#3a5a3a", fontSize: 14, padding: "40px 0", textAlign: "center" }}>
                 Loading…
               </div>
             )}
 
-            {!statsLoading && myStats && myStats.games_played === 0 && (
+            {!loading && !myRow && (
               <div style={{ color: "#3a5a3a", fontSize: 14, textAlign: "center", padding: "40px 0" }}>
                 No ranked games yet. Play a full human game to see your stats here.
               </div>
             )}
 
-            {!statsLoading && myStats && myStats.games_played > 0 && (
+            {!loading && myRow && (
               <>
                 {/* Ranking callout */}
-                {myRank >= 0 && (
-                  <div style={{
-                    background: "rgba(240,192,64,.06)", border: "1px solid #3a3010",
-                    borderRadius: 10, padding: "12px 18px", marginBottom: 28,
-                    color: "#f0c040", fontSize: 14, textAlign: "center",
-                  }}>
-                    You rank <strong>#{myRank + 1}</strong> of {rows.length} player{rows.length !== 1 ? "s" : ""} by win rate
-                  </div>
-                )}
+                <div style={{
+                  background: "rgba(240,192,64,.06)", border: "1px solid #3a3010",
+                  borderRadius: 10, padding: "12px 18px", marginBottom: 28,
+                  color: "#f0c040", fontSize: 14, textAlign: "center",
+                }}>
+                  You rank <strong>#{myRank + 1}</strong> of {rows.length} player{rows.length !== 1 ? "s" : ""} by win rate
+                </div>
 
                 {/* Radar chart */}
                 <div style={{
@@ -266,8 +292,39 @@ export default function LeaderboardPage() {
                     fontFamily: "'Playfair Display',serif", color: "#f0c040",
                     fontSize: 15, marginBottom: 16,
                   }}>
-                    Performance Profile
+                    Performance Comparison
                   </div>
+
+                  {/* Player toggle chips */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                    {rows.map((r) => {
+                      const isMe = r.id === user?.id;
+                      const color = colorFor(r.id);
+                      const hidden = !isMe && hiddenPlayers.has(r.id);
+                      return (
+                        <button
+                          key={r.id}
+                          onClick={() => togglePlayer(r.id)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 6,
+                            padding: "4px 12px", borderRadius: 16,
+                            border: `1px solid ${hidden ? "#2a4a2a" : color}`,
+                            background: hidden ? "transparent" : `${color}18`,
+                            color: hidden ? "#3a5a3a" : color,
+                            fontSize: 12, cursor: isMe ? "default" : "pointer",
+                            fontFamily: "Georgia,serif",
+                          }}
+                        >
+                          <div style={{
+                            width: 8, height: 8, borderRadius: "50%",
+                            background: hidden ? "#2a4a2a" : color,
+                          }} />
+                          {isMe ? "You" : r.display_name}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <ResponsiveContainer width="100%" height={300}>
                     <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
                       <PolarGrid stroke="#1e4a1e" />
@@ -276,18 +333,27 @@ export default function LeaderboardPage() {
                         tick={{ fill: "#8aab8a", fontSize: 13, fontFamily: "Georgia,serif" }}
                       />
                       <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar
-                        dataKey="value"
-                        stroke="#f0c040"
-                        fill="#f0c040"
-                        fillOpacity={0.15}
-                        strokeWidth={2}
-                      />
+                      {rows.map((r) => {
+                        const isMe = r.id === user?.id;
+                        if (!isMe && hiddenPlayers.has(r.id)) return null;
+                        const color = colorFor(r.id);
+                        return (
+                          <Radar
+                            key={r.id}
+                            dataKey={r.id}
+                            name={isMe ? "You" : r.display_name}
+                            stroke={color}
+                            fill={color}
+                            fillOpacity={isMe ? 0.15 : 0.05}
+                            strokeWidth={isMe ? 2 : 1.5}
+                          />
+                        );
+                      })}
                       <Tooltip
-                        formatter={(val, name, props) => [`${val}%`, props.payload.metric]}
+                        formatter={(val, name) => [`${val}%`, name]}
                         contentStyle={{
                           background: "#0d2b0d", border: "1px solid #2a5c2a",
-                          borderRadius: 8, fontFamily: "Georgia,serif", fontSize: 13,
+                          borderRadius: 8, fontFamily: "Georgia,serif", fontSize: 12,
                         }}
                       />
                     </RadarChart>
@@ -298,19 +364,19 @@ export default function LeaderboardPage() {
                 </div>
 
                 {/* Stat cards */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10, marginBottom: 12 }}>
-                  <StatCard label="Games" value={myStats.games_played} />
-                  <StatCard label="Wins" value={myStats.wins} />
-                  <StatCard label="Losses" value={myStats.games_played - myStats.wins} />
-                  <StatCard label="Win Rate" value={fmt(myStats.win_pct, true)} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}>
+                  <StatCard label="Games" value={myRow.games_played} />
+                  <StatCard label="Wins" value={myRow.wins} />
+                  <StatCard label="Losses" value={myRow.games_played - myRow.wins} />
+                  <StatCard label="Win Rate" value={fmt(myRow.win_pct, true)} />
                   <StatCard
                     label="Bid Rate"
-                    value={fmt(myStats.bid_rate, true)}
-                    sub={myStats.bid_attempts > 0 ? `${myStats.bid_successes}/${myStats.bid_attempts} bids` : null}
+                    value={fmt(myRow.bid_rate, true)}
+                    sub={myRow.bid_attempts > 0 ? `${myRow.bid_successes}/${myRow.bid_attempts} bids` : null}
                   />
                   <StatCard
                     label="Avg Score"
-                    value={myStats.avg_score != null ? myStats.avg_score : "—"}
+                    value={myRow.avg_score != null ? myRow.avg_score : "—"}
                     sub="points per game"
                   />
                 </div>
