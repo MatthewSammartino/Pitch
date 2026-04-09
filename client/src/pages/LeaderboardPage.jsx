@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
@@ -7,8 +7,27 @@ import {
   ResponsiveContainer, Tooltip,
 } from "recharts";
 
-const MEMBER_COLORS = ["#4fc3a1", "#e05c5c", "#8aab8a", "#c090a0", "#7090c0", "#c87a3a"];
-const MAX_COMPARED = 5;
+// ── Benchmark definitions ────────────────────────────────────────────────────
+const BENCHMARK_DEFS = [
+  { id: "bm_bottom10", label: "Bottom 10%", color: "#e05c5c" },
+  { id: "bm_average",  label: "Average",    color: "#8aab8a" },
+  { id: "bm_top10",    label: "Top 10%",    color: "#4fc3a1" },
+  { id: "bm_top1",     label: "Top 1%",     color: "#7090c0" },
+  { id: "bm_top01",    label: "Top 0.1%",   color: "#c090a0" },
+];
+
+// Metric extractors — returns 0–100 scaled value per player row
+const METRIC_DEFS = [
+  { label: "Win %",        fn: (r) => r.win_pct        != null ? Math.round(r.win_pct * 100)                     : null },
+  { label: "Bid %",        fn: (r) => r.bid_rate       != null ? Math.round(r.bid_rate * 100)                    : null },
+  { label: "Avg Score",    fn: (r) => r.avg_score      != null ? Math.round((r.avg_score / 15) * 100)            : null },
+  { label: "Recent Form",  fn: (r) => r.recent_form    != null ? Math.round(r.recent_form * 100)                 : null },
+  { label: "Loss Control", fn: (r) => r.avg_loss_margin != null ? Math.round((1 - r.avg_loss_margin / 15) * 100) : null },
+  { label: "Clutch",       fn: (r) => r.clutch_rate    != null ? Math.round(r.clutch_rate * 100)                 : null },
+];
+
+const MEMBER_COLORS = ["#c87a3a", "#c090a0", "#7090c0", "#4fc3a1", "#e05c5c", "#8aab8a"];
+const MAX_COMPARED  = 5;
 
 function fmt(val, pct = false) {
   if (val == null) return "—";
@@ -53,6 +72,26 @@ function TabBtn({ active, onClick, children }) {
   );
 }
 
+// Compute percentile benchmarks for all metrics from the full player list
+function computeBenchmarkStats(rows) {
+  const result = {};
+  for (const { label, fn } of METRIC_DEFS) {
+    const vals = rows.map(fn).filter((v) => v != null).sort((a, b) => a - b);
+    function pct(p) {
+      if (!vals.length) return 0;
+      return vals[Math.min(Math.floor(p * vals.length), vals.length - 1)];
+    }
+    result[label] = {
+      bm_bottom10: pct(0.10),
+      bm_average:  vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0,
+      bm_top10:    pct(0.90),
+      bm_top1:     pct(0.99),
+      bm_top01:    pct(0.999),
+    };
+  }
+  return result;
+}
+
 export default function LeaderboardPage() {
   const { user } = useAuth();
   const [rows, setRows]           = useState([]);
@@ -60,7 +99,12 @@ export default function LeaderboardPage() {
   const [error, setError]         = useState("");
   const [activeTab, setActiveTab] = useState("rankings");
 
-  // Search-to-add state
+  // Benchmark toggles — default: average + top 10%
+  const [activeBenchmarks, setActiveBenchmarks] = useState(
+    () => new Set(["bm_average", "bm_top10"])
+  );
+
+  // Individual player search-to-add
   const [comparedPlayers, setComparedPlayers] = useState([]);
   const [searchTerm, setSearchTerm]           = useState("");
   const [searchOpen, setSearchOpen]           = useState(false);
@@ -73,7 +117,6 @@ export default function LeaderboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e) {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -87,7 +130,17 @@ export default function LeaderboardPage() {
   const myRank = rows.findIndex((r) => r.id === user?.id);
   const myRow  = myRank >= 0 ? rows[myRank] : null;
 
-  function colorFor(id) {
+  const benchmarkStats = useMemo(() => computeBenchmarkStats(rows), [rows]);
+
+  function toggleBenchmark(id) {
+    setActiveBenchmarks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function colorForPlayer(id) {
     if (id === user?.id) return "#f0c040";
     const idx = comparedPlayers.findIndex((p) => p.id === id);
     return MEMBER_COLORS[idx % MEMBER_COLORS.length];
@@ -113,21 +166,24 @@ export default function LeaderboardPage() {
       ).slice(0, 6)
     : [];
 
-  // Build 6-metric radar data keyed by user ID
-  const radarPlayers = myRow ? [myRow, ...comparedPlayers] : comparedPlayers;
-
-  function metricVals(fn) {
-    return Object.fromEntries(radarPlayers.map((r) => [r.id, fn(r)]));
-  }
-
-  const radarData = radarPlayers.length > 0 ? [
-    { metric: "Win %",        ...metricVals((r) => r.win_pct      != null ? Math.round(r.win_pct * 100)                        : 0) },
-    { metric: "Bid %",        ...metricVals((r) => r.bid_rate     != null ? Math.round(r.bid_rate * 100)                       : 0) },
-    { metric: "Avg Score",    ...metricVals((r) => r.avg_score    != null ? Math.round((r.avg_score / 15) * 100)               : 0) },
-    { metric: "Recent Form",  ...metricVals((r) => r.recent_form  != null ? Math.round(r.recent_form * 100)                    : 0) },
-    { metric: "Loss Control", ...metricVals((r) => r.avg_loss_margin != null ? Math.round((1 - r.avg_loss_margin / 15) * 100)  : 0) },
-    { metric: "Clutch",       ...metricVals((r) => r.clutch_rate  != null ? Math.round(r.clutch_rate * 100)                    : 0) },
-  ] : [];
+  // Build radar data — one point per metric
+  const radarData = useMemo(() => {
+    if (!myRow) return [];
+    return METRIC_DEFS.map(({ label, fn }) => {
+      const point = { metric: label };
+      // Current user
+      point[myRow.id] = fn(myRow) ?? 0;
+      // Individual compared players
+      for (const p of comparedPlayers) point[p.id] = fn(p) ?? 0;
+      // Active benchmarks
+      for (const bm of BENCHMARK_DEFS) {
+        if (activeBenchmarks.has(bm.id)) {
+          point[bm.id] = benchmarkStats[label]?.[bm.id] ?? 0;
+        }
+      }
+      return point;
+    });
+  }, [myRow, comparedPlayers, activeBenchmarks, benchmarkStats]);
 
   return (
     <div style={{
@@ -311,106 +367,127 @@ export default function LeaderboardPage() {
                     Performance Comparison
                   </div>
 
-                  {/* You chip (always present) */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      padding: "4px 12px", borderRadius: 16,
-                      border: "1px solid #f0c040",
-                      background: "rgba(240,192,64,.12)",
-                      color: "#f0c040", fontSize: 12,
-                      fontFamily: "Georgia,serif",
-                    }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f0c040" }} />
-                      You
+                  {/* ── Benchmark toggles ── */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ color: "#3a5a3a", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
+                      Benchmarks
                     </div>
-
-                    {comparedPlayers.map((p) => {
-                      const color = colorFor(p.id);
-                      return (
-                        <div
-                          key={p.id}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 6,
-                            padding: "4px 12px", borderRadius: 16,
-                            border: `1px solid ${color}`,
-                            background: `${color}18`,
-                            color, fontSize: 12,
-                            fontFamily: "Georgia,serif",
-                          }}
-                        >
-                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
-                          {p.display_name}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {BENCHMARK_DEFS.map((bm) => {
+                        const active = activeBenchmarks.has(bm.id);
+                        return (
                           <button
-                            onClick={() => removePlayer(p.id)}
+                            key={bm.id}
+                            onClick={() => toggleBenchmark(bm.id)}
                             style={{
-                              background: "none", border: "none", cursor: "pointer",
-                              color, fontSize: 14, lineHeight: 1, padding: "0 0 0 2px",
+                              display: "flex", alignItems: "center", gap: 6,
+                              padding: "4px 12px", borderRadius: 16,
+                              border: `1px solid ${active ? bm.color : "#2a4a2a"}`,
+                              background: active ? `${bm.color}18` : "transparent",
+                              color: active ? bm.color : "#3a5a3a",
+                              fontSize: 12, cursor: "pointer", fontFamily: "Georgia,serif",
                             }}
                           >
-                            ×
+                            <div style={{
+                              width: 8, height: 8, borderRadius: "50%",
+                              background: active ? bm.color : "#2a4a2a",
+                            }} />
+                            {bm.label}
                           </button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                    {/* Search-to-add */}
-                    {comparedPlayers.length < MAX_COMPARED && (
-                      <div ref={searchRef} style={{ position: "relative" }}>
-                        <input
-                          value={searchTerm}
-                          onChange={(e) => { setSearchTerm(e.target.value); setSearchOpen(true); }}
-                          onFocus={() => setSearchOpen(true)}
-                          placeholder="+ Compare player…"
-                          style={{
-                            padding: "4px 12px", borderRadius: 16,
-                            border: "1px solid #2a4a2a",
-                            background: "transparent",
-                            color: "#8aab8a", fontSize: 12,
-                            fontFamily: "Georgia,serif",
-                            outline: "none", width: 150,
-                          }}
-                        />
-                        {searchOpen && searchResults.length > 0 && (
-                          <div style={{
-                            position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 50,
-                            background: "#0d2b0d", border: "1px solid #2a5c2a",
-                            borderRadius: 8, overflow: "hidden", minWidth: 180,
-                          }}>
-                            {searchResults.map((r) => (
-                              <div
-                                key={r.id}
-                                onMouseDown={() => addPlayer(r)}
-                                style={{
-                                  padding: "8px 14px", cursor: "pointer",
-                                  color: "#f0e8d0", fontSize: 13,
-                                  borderBottom: "1px solid #1e3a1e",
-                                  fontFamily: "Georgia,serif",
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,.05)"}
-                                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                              >
-                                {r.display_name}
-                                <span style={{ color: "#3a5a3a", fontSize: 11, marginLeft: 8 }}>
-                                  {fmt(r.win_pct, true)} WR
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {searchOpen && searchTerm.length > 0 && searchResults.length === 0 && (
-                          <div style={{
-                            position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 50,
-                            background: "#0d2b0d", border: "1px solid #2a5c2a",
-                            borderRadius: 8, padding: "8px 14px",
-                            color: "#3a5a3a", fontSize: 12,
-                            fontFamily: "Georgia,serif",
-                          }}>
-                            No players found
-                          </div>
-                        )}
+                  {/* ── Active players (You + compared) ── */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ color: "#3a5a3a", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
+                      Players
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                      {/* You chip — always present */}
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        padding: "4px 12px", borderRadius: 16,
+                        border: "1px solid #f0c040", background: "rgba(240,192,64,.12)",
+                        color: "#f0c040", fontSize: 12, fontFamily: "Georgia,serif",
+                      }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f0c040" }} />
+                        You
                       </div>
-                    )}
+
+                      {/* Added individual players */}
+                      {comparedPlayers.map((p) => {
+                        const color = colorForPlayer(p.id);
+                        return (
+                          <div key={p.id} style={{
+                            display: "flex", alignItems: "center", gap: 6,
+                            padding: "4px 12px", borderRadius: 16,
+                            border: `1px solid ${color}`, background: `${color}18`,
+                            color, fontSize: 12, fontFamily: "Georgia,serif",
+                          }}>
+                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+                            {p.display_name}
+                            <button
+                              onClick={() => removePlayer(p.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color, fontSize: 14, lineHeight: 1, padding: "0 0 0 2px" }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                      {/* Search-to-add */}
+                      {comparedPlayers.length < MAX_COMPARED && (
+                        <div ref={searchRef} style={{ position: "relative" }}>
+                          <input
+                            value={searchTerm}
+                            onChange={(e) => { setSearchTerm(e.target.value); setSearchOpen(true); }}
+                            onFocus={() => setSearchOpen(true)}
+                            placeholder="+ Add player…"
+                            style={{
+                              padding: "4px 12px", borderRadius: 16,
+                              border: "1px solid #2a4a2a", background: "transparent",
+                              color: "#8aab8a", fontSize: 12, fontFamily: "Georgia,serif",
+                              outline: "none", width: 140,
+                            }}
+                          />
+                          {searchOpen && searchResults.length > 0 && (
+                            <div style={{
+                              position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 50,
+                              background: "#0d2b0d", border: "1px solid #2a5c2a",
+                              borderRadius: 8, overflow: "hidden", minWidth: 180,
+                            }}>
+                              {searchResults.map((r) => (
+                                <div
+                                  key={r.id}
+                                  onMouseDown={() => addPlayer(r)}
+                                  style={{ padding: "8px 14px", cursor: "pointer", color: "#f0e8d0", fontSize: 13, borderBottom: "1px solid #1e3a1e", fontFamily: "Georgia,serif" }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,.05)"}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                                >
+                                  {r.display_name}
+                                  <span style={{ color: "#3a5a3a", fontSize: 11, marginLeft: 8 }}>
+                                    {fmt(r.win_pct, true)} WR
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {searchOpen && searchTerm.length > 0 && searchResults.length === 0 && (
+                            <div style={{
+                              position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 50,
+                              background: "#0d2b0d", border: "1px solid #2a5c2a",
+                              borderRadius: 8, padding: "8px 14px",
+                              color: "#3a5a3a", fontSize: 12, fontFamily: "Georgia,serif",
+                            }}>
+                              No players found
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <ResponsiveContainer width="100%" height={300}>
@@ -421,21 +498,47 @@ export default function LeaderboardPage() {
                         tick={{ fill: "#8aab8a", fontSize: 12, fontFamily: "Georgia,serif" }}
                       />
                       <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                      {radarPlayers.map((r) => {
-                        const isMe = r.id === user?.id;
-                        const color = colorFor(r.id);
+
+                      {/* Current user */}
+                      <Radar
+                        dataKey={myRow.id}
+                        name="You"
+                        stroke="#f0c040"
+                        fill="#f0c040"
+                        fillOpacity={0.15}
+                        strokeWidth={2}
+                      />
+
+                      {/* Benchmark lines — dashed */}
+                      {BENCHMARK_DEFS.filter((bm) => activeBenchmarks.has(bm.id)).map((bm) => (
+                        <Radar
+                          key={bm.id}
+                          dataKey={bm.id}
+                          name={bm.label}
+                          stroke={bm.color}
+                          fill={bm.color}
+                          fillOpacity={0.04}
+                          strokeWidth={1.5}
+                          strokeDasharray="5 3"
+                        />
+                      ))}
+
+                      {/* Individual compared players */}
+                      {comparedPlayers.map((p) => {
+                        const color = colorForPlayer(p.id);
                         return (
                           <Radar
-                            key={r.id}
-                            dataKey={r.id}
-                            name={isMe ? "You" : r.display_name}
+                            key={p.id}
+                            dataKey={p.id}
+                            name={p.display_name}
                             stroke={color}
                             fill={color}
-                            fillOpacity={isMe ? 0.15 : 0.05}
-                            strokeWidth={isMe ? 2 : 1.5}
+                            fillOpacity={0.05}
+                            strokeWidth={1.5}
                           />
                         );
                       })}
+
                       <Tooltip
                         formatter={(val, name) => [`${val}%`, name]}
                         contentStyle={{
@@ -446,7 +549,7 @@ export default function LeaderboardPage() {
                     </RadarChart>
                   </ResponsiveContainer>
                   <div style={{ color: "#3a5a3a", fontSize: 11, textAlign: "center", marginTop: 8 }}>
-                    All metrics normalized 0–100. Avg Score scaled to 15-pt max. Loss Control = inverse avg loss margin.
+                    All metrics normalized 0–100. Benchmarks (dashed) computed across all ranked players.
                   </div>
                 </div>
 
@@ -461,31 +564,11 @@ export default function LeaderboardPage() {
                     value={fmt(myRow.bid_rate, true)}
                     sub={myRow.bid_attempts > 0 ? `${myRow.bid_successes}/${myRow.bid_attempts} bids` : null}
                   />
-                  <StatCard
-                    label="Avg Score"
-                    value={myRow.avg_score != null ? myRow.avg_score : "—"}
-                    sub="points per game"
-                  />
-                  <StatCard
-                    label="Recent Form"
-                    value={fmt(myRow.recent_form, true)}
-                    sub="last 10 games"
-                  />
-                  <StatCard
-                    label="Clutch Rate"
-                    value={fmt(myRow.clutch_rate, true)}
-                    sub="≤3 pt games"
-                  />
-                  <StatCard
-                    label="Avg Win Margin"
-                    value={myRow.avg_win_margin != null ? myRow.avg_win_margin : "—"}
-                    sub="points"
-                  />
-                  <StatCard
-                    label="Avg Loss Margin"
-                    value={myRow.avg_loss_margin != null ? myRow.avg_loss_margin : "—"}
-                    sub="points"
-                  />
+                  <StatCard label="Avg Score" value={myRow.avg_score != null ? myRow.avg_score : "—"} sub="points per game" />
+                  <StatCard label="Recent Form" value={fmt(myRow.recent_form, true)} sub="last 10 games" />
+                  <StatCard label="Clutch Rate" value={fmt(myRow.clutch_rate, true)} sub="≤3 pt games" />
+                  <StatCard label="Avg Win Margin" value={myRow.avg_win_margin != null ? myRow.avg_win_margin : "—"} sub="points" />
+                  <StatCard label="Avg Loss Margin" value={myRow.avg_loss_margin != null ? myRow.avg_loss_margin : "—"} sub="points" />
                 </div>
               </>
             )}

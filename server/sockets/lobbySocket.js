@@ -155,7 +155,7 @@ module.exports = function lobbySocket(nsp) {
             await pool.query("BEGIN");
             try {
               const { rows: broke } = await pool.query(
-                `SELECT id FROM users WHERE id = ANY($1::uuid[]) AND chip_balance < $2`,
+                `SELECT id FROM users WHERE id = ANY($1::uuid[]) AND (chip_balance < $2 OR chip_balance < 0)`,
                 [humanUserIds, lobby.wagerBase]
               );
               if (broke.length > 0) {

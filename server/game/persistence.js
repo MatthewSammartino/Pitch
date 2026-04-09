@@ -118,6 +118,7 @@ async function finalizeSession(sessionId, teamScores, seats = []) {
 
     await pool.query("BEGIN");
     // Deduct per-set penalty from losers (base already taken at game start)
+    // Balance can go negative — players owe chips they don't yet have
     for (const s of humanLosers) {
       const additional = wagerPerSet * (setsPerTeam[s.team] || 0);
       if (additional > 0) {
