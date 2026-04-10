@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
+import TutorialBanner from "../components/TutorialBanner";
 
 const S = {
   page: {
@@ -98,6 +99,9 @@ export default function LandingPage() {
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#071a07 0%,#0d2b0d 40%,#091a09 100%)", color: "#e8dfc8", fontFamily: "'Georgia',serif" }}>
       <Navbar />
       <div style={S.page}>
+      <div style={{ width: "100%", maxWidth: 560, marginBottom: 8 }}>
+        <TutorialBanner />
+      </div>
       <div style={{ fontSize: 64, marginBottom: 16 }}>🃏</div>
       <h1 style={S.title}>Pitch</h1>
       <p style={S.subtitle}>

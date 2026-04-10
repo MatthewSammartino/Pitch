@@ -7,7 +7,7 @@ const NAV_LINKS = [
   { label: "Play",        to: "/dashboard" },
   { label: "Groups",      to: "/groups" },
   { label: "Leaderboard", to: "/leaderboard" },
-  { label: "News",        to: "/news" },
+  { label: "Guide",       to: "/tutorial" },
   { label: "Chips",       to: "/chips" },
   { label: "Help",        to: "/help" },
 ];

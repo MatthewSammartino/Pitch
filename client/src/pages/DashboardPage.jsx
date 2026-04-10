@@ -4,6 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
 import StatsBar from "../components/dashboard/StatsBar";
+import TutorialBanner from "../components/TutorialBanner";
 
 const S = {
   page: {
@@ -171,6 +172,7 @@ export default function DashboardPage() {
       <div style={S.body}>
         <h1 style={S.greeting}>Welcome back, {user?.display_name || "Player"}.</h1>
         <p style={S.sub}>Play a game or browse your groups below.</p>
+        {!user?.is_guest && <TutorialBanner />}
 
         {/* ── Open Lobbies ──────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 36 }}>

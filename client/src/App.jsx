@@ -11,6 +11,7 @@ import StubPage         from "./pages/StubPage";
 import LeaderboardPage  from "./pages/LeaderboardPage";
 import GroupsPage       from "./pages/GroupsPage";
 import ChipsPage        from "./pages/ChipsPage";
+import TutorialPage     from "./pages/TutorialPage";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/join/:token" element={<JoinGroupPage />} />
       <Route path="/news"        element={<StubPage title="News" />} />
       <Route path="/chips"       element={<ChipsPage />} />
+      <Route path="/tutorial"    element={<TutorialPage />} />
       <Route path="/store"       element={<StubPage title="Store" />} />
       <Route path="/settings"    element={<StubPage title="Settings" />} />
       <Route path="/leaderboard" element={<LeaderboardPage />} />
