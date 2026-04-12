@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { useSocketContext } from "../context/SocketContext";
 import Navbar from "../components/layout/Navbar";
 import StatsBar from "../components/dashboard/StatsBar";
-import TutorialBanner from "../components/TutorialBanner";
+import TutorialModal from "../components/TutorialModal";
 
 const S = {
   page: {
@@ -105,6 +105,16 @@ export default function DashboardPage() {
   const [publicLobbies, setPublicLobbies]   = useState([]);
   const [lobbiesLoading, setLobbiesLoading] = useState(true);
 
+  // Tutorial modal
+  const [showTutorial, setShowTutorial] = useState(
+    () => !localStorage.getItem("pitch_tutorial_done")
+  );
+
+  function dismissTutorial() {
+    localStorage.setItem("pitch_tutorial_done", "1");
+    setShowTutorial(false);
+  }
+
   // Queue state
   const [inQueue, setInQueue]           = useState(false);
   const [queueVariant, setQueueVariant] = useState(4);
@@ -196,12 +206,12 @@ export default function DashboardPage() {
 
   return (
     <div style={S.page}>
+      {showTutorial && <TutorialModal onDismiss={dismissTutorial} />}
       <Navbar />
       {!user?.is_guest && <StatsBar />}
       <div style={S.body}>
         <h1 style={S.greeting}>Welcome back, {user?.display_name || "Player"}.</h1>
         <p style={S.sub}>Play a game or browse your groups below.</p>
-        {!user?.is_guest && <TutorialBanner />}
 
         {/* ── Open Lobbies ──────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 36 }}>

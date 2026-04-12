@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const KEY = "pitch_tutorial_seen";
+const KEY = "pitch_tutorial_done";
 
 export default function TutorialBanner() {
   const navigate = useNavigate();
