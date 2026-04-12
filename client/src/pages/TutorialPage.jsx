@@ -79,7 +79,7 @@ function S1Overview() {
         ))}
       </div>
       <p style={{ color: "#5a7a5a", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-        Each hand starts with a deal of 9 cards per player. Players bid, trump is named, tricks are played,
+        Each hand starts with a deal of 6 cards per player. Players bid, trump is named, tricks are played,
         and points are tallied. Then the next hand begins — until someone hits 15.
       </p>
     </div>
@@ -152,35 +152,35 @@ const POINT_DEFS = [
     label: "High",
     color: "#f0c040",
     card: { rank: "A", suit: "♠" },
-    desc: "The highest trump card played in the hand. If you hold the Ace of trump, you almost certainly win this point — just play it.",
+    desc: "The highest trump card played in the hand. If you hold the Ace of trump, you are guaranteed this point — just play it.",
   },
   {
     id: "low",
     label: "Low",
     color: "#4fc3a1",
     card: { rank: "2", suit: "♠" },
-    desc: "The lowest trump card in play — but it goes to whoever CAPTURES it, not whoever holds it. Your opponent can steal Low by winning a trick that contains your low trump.",
+    desc: "The lowest trump card played in the hand. It goes to whoever PLAYS it — no one can steal it from you. Just get it into a trick and the point is yours.",
   },
   {
     id: "jack",
     label: "Jack",
     color: "#7090c0",
     card: { rank: "J", suit: "♠" },
-    desc: "The Jack of trump. Worth a full point on its own — protect it carefully. It's often the deciding card in a close bid.",
+    desc: "The Jack of trump. Worth a full point — but it goes to whoever CAPTURES the trick containing it, not whoever played it. Your opponent can steal it by winning the trick. Protect it carefully; it's often the deciding card in a close bid.",
   },
   {
     id: "offjack",
     label: "Off-Jack",
     color: "#c090a0",
     card: { rank: "J", suit: "♣" },
-    desc: "The Jack of the same COLOR as trump. If Spades (♠) is trump, the Off-Jack is the Jack of Clubs (♣). It ranks just below the Jack of trump and counts as trump — a surprise weapon.",
+    desc: "The Jack of the same COLOR as trump. If Spades (♠) is trump, the Off-Jack is the Jack of Clubs (♣). It ranks just below the Jack of trump and counts as trump. Like the Jack, the point goes to whoever CAPTURES the trick containing it — and it's worth 0.5 game points. A surprise weapon that can be stolen.",
   },
   {
     id: "game",
     label: "Game",
     color: "#c87a3a",
     card: { rank: "10", suit: "♠" },
-    desc: "Awarded to the team that captures the most card-point value: Aces=4, Kings=3, Queens=2, Jacks=1, Tens=10. Ten-point Tens make this volatile — one Ten can swing it.",
+    desc: "Awarded to the team that captures the most card-point value: Aces=4, Kings=3, Queens=2, Jacks=1, Tens=10. The Off-Jack counts as 0.5 game points. Ten-point Tens make this volatile — one Ten can swing it.",
   },
 ];
 
@@ -256,7 +256,7 @@ function S4Playing() {
     },
     {
       label: "Step 2 — Follow suit or play any card",
-      desc: "Players must follow the led suit if they can. If they can't, they may play any card — including trump. Trump always beats non-trump, regardless of rank.",
+      desc: "If you have the led suit, you must play the led suit or trump — you cannot discard an unrelated suit. If you have no cards in the led suit, you may play any card. Trump always beats non-trump, regardless of rank.",
       cards: [
         { rank: "8", suit: "♠", label: "leads ♠", glow: false },
         { rank: "Q", suit: "♠", label: "follows ♠", glow: true },
@@ -267,11 +267,11 @@ function S4Playing() {
     },
     {
       label: "Step 3 — Trump beats all",
-      desc: "If a non-trump suit is led and a player can't follow, they can play trump to steal the trick. Even the lowest trump beats the highest card of any other suit.",
+      desc: "You can play trump at any time — even if you have the led suit. Leading trump or throwing trump on a non-trump trick is always a legal move. Even the lowest trump beats the highest card of any other suit.",
       cards: [
         { rank: "A", suit: "♥", label: "leads ♥", glow: false },
         { rank: "K", suit: "♥", label: "follows ♥", glow: false },
-        { rank: "2", suit: "♠", label: "out of ♥, plays trump!", glow: true },
+        { rank: "2", suit: "♠", label: "has ♥, plays trump anyway!", glow: true },
         { rank: "J", suit: "♥", label: "follows ♥", glow: false },
       ],
       note: "2♠ wins the trick — trump beats everything.",
