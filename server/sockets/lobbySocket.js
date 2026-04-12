@@ -1,5 +1,7 @@
-const GameStore = require("../game/GameStore");
-const pool      = require("../db/pool");
+const { randomUUID } = require("crypto");
+const GameStore    = require("../game/GameStore");
+const QueueManager = require("../game/QueueManager");
+const pool         = require("../db/pool");
 
 /**
  * /lobby namespace
@@ -9,15 +11,125 @@ const pool      = require("../db/pool");
  *   lobby:take_seat   { sessionId, seatIndex }
  *   lobby:leave_seat  { sessionId }
  *   lobby:start_game  { sessionId }
+ *   queue:join        { variant }
+ *   queue:leave
+ *   queue:get_counts
  *
  * Server → Client (room = sessionId):
  *   lobby:state       publicState()
  *   lobby:started     { sessionId }
  *   lobby:error       { message }  (individual)
+ *
+ * Server → Client (namespace-wide):
+ *   queue:count       { 4: n, 6: n }
+ *
+ * Server → Client (individual):
+ *   queue:matched     { sessionId }
  */
+
+// ── Room code helpers ──────────────────────────────────────────────────────
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function randomCode() {
+  let c = "";
+  for (let i = 0; i < 6; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  return c;
+}
+async function generateUniqueCode() {
+  for (let i = 0; i < 20; i++) {
+    const code = randomCode();
+    const { rows } = await pool.query("SELECT 1 FROM game_sessions WHERE short_code = $1", [code]);
+    if (!rows.length) return code;
+  }
+  throw new Error("Could not generate unique room code");
+}
+
+/**
+ * Create a DB session + GameStore lobby for a queue match, then seat all players.
+ * Returns the sessionId.
+ */
+async function createMatchedSession(matched, variant, nsp) {
+  const hostUserId = matched[0].userId;
+  const shortCode  = await generateUniqueCode();
+  const sessionId  = randomUUID();
+
+  await pool.query(
+    `INSERT INTO game_sessions (id, group_id, variant, status, created_by, short_code, is_public)
+     VALUES ($1, NULL, $2, 'waiting', $3, $4, true)`,
+    [sessionId, variant, hostUserId, shortCode]
+  );
+
+  const lobby = GameStore.createLobby(sessionId, null, variant, hostUserId, shortCode, true);
+
+  // Seat each matched player directly
+  for (const entry of matched) {
+    lobby.seats[entry.seatIndex] = {
+      userId:      entry.userId,
+      displayName: entry.displayName,
+      avatarUrl:   entry.avatarUrl || null,
+      isBot:       false,
+    };
+  }
+
+  // Notify each matched socket and redirect them to the lobby
+  for (const entry of matched) {
+    const sock = nsp.sockets.get(entry.socketId);
+    if (sock) {
+      sock.join(sessionId);
+      sock.emit("queue:matched", { sessionId });
+    }
+  }
+
+  return sessionId;
+}
+
 module.exports = function lobbySocket(nsp) {
   nsp.on("connection", (socket) => {
     const user = socket.request.user;
+
+    // ── queue:get_counts ────────────────────────────────────────────────────
+    socket.on("queue:get_counts", () => {
+      socket.emit("queue:count", QueueManager.getCounts());
+    });
+
+    // ── queue:join ──────────────────────────────────────────────────────────
+    socket.on("queue:join", async ({ variant } = {}) => {
+      const v = parseInt(variant);
+      if (v !== 4 && v !== 6) return;
+      if (user.is_guest) return socket.emit("lobby:error", { message: "Guests cannot join the queue." });
+
+      const mmr = user.mmr || 1000;
+      QueueManager.enqueue(user.id, mmr, v, socket.id);
+
+      // Store display info on the entry so we can seat the player
+      const entry = QueueManager.queues[v].find((e) => e.userId === user.id);
+      if (entry) {
+        entry.displayName = user.display_name;
+        entry.avatarUrl   = user.avatar_url || null;
+      }
+
+      nsp.emit("queue:count", QueueManager.getCounts());
+
+      const matched = QueueManager.tryMatch(v);
+      if (matched) {
+        try {
+          await createMatchedSession(matched, v, nsp);
+          nsp.emit("queue:count", QueueManager.getCounts());
+        } catch (err) {
+          console.error("Queue match session creation error:", err.message);
+          // Re-enqueue the players so they aren't lost
+          for (const e of matched) {
+            QueueManager.enqueue(e.userId, e.mmr, v, e.socketId);
+          }
+          nsp.emit("queue:count", QueueManager.getCounts());
+        }
+      }
+    });
+
+    // ── queue:leave ─────────────────────────────────────────────────────────
+    socket.on("queue:leave", () => {
+      QueueManager.dequeue(user.id);
+      nsp.emit("queue:count", QueueManager.getCounts());
+    });
 
     // ── lobby:join ──────────────────────────────────────────────────────────
     socket.on("lobby:join", ({ sessionId } = {}) => {
@@ -205,6 +317,12 @@ module.exports = function lobbySocket(nsp) {
         console.error("lobby:start_game error:", err.message);
         socket.emit("lobby:error", { message: "Failed to start game." });
       }
+    });
+
+    // ── disconnect ──────────────────────────────────────────────────────────
+    socket.on("disconnect", () => {
+      QueueManager.dequeue(user.id);
+      nsp.emit("queue:count", QueueManager.getCounts());
     });
   });
 };

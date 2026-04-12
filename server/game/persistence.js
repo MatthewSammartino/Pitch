@@ -141,6 +141,46 @@ async function finalizeSession(sessionId, teamScores, seats = []) {
     await pool.query("ROLLBACK").catch(() => {});
     console.error("Chip payout error for session", sessionId, ":", err.message);
   }
+
+  // ── MMR update ────────────────────────────────────────────────────────────
+  // Only update if the game was all-human (no bots) with at least 4 players
+  if (humanSeats.length === seats.length && humanSeats.length >= 4) {
+    try {
+      const winningTeam = teamScores.reduce(
+        (best, score, team) => (score > teamScores[best] ? team : best),
+        0
+      );
+
+      const { rows: mmrRows } = await pool.query(
+        `SELECT id, mmr FROM users WHERE id = ANY($1::uuid[])`,
+        [humanSeats.map((s) => s.userId)]
+      );
+      const mmrByUser = {};
+      for (const r of mmrRows) mmrByUser[r.id] = r.mmr ?? 1000;
+
+      const numTeams = Math.max(...humanSeats.map((s) => s.team)) + 1;
+      const teamMmrAvg = Array.from({ length: numTeams }, (_, t) => {
+        const members = humanSeats.filter((s) => s.team === t);
+        if (!members.length) return 1000;
+        return members.reduce((sum, s) => sum + (mmrByUser[s.userId] || 1000), 0) / members.length;
+      });
+
+      const K = 32;
+      for (const s of humanSeats) {
+        const myMmr  = mmrByUser[s.userId] || 1000;
+        const oppAvg = teamMmrAvg[1 - s.team] ?? 1000;
+        const expected = 1 / (1 + Math.pow(10, (oppAvg - myMmr) / 400));
+        const actual   = s.team === winningTeam ? 1 : 0;
+        const delta    = Math.round(K * (actual - expected));
+        await pool.query(
+          `UPDATE users SET mmr = GREATEST(100, mmr + $1) WHERE id = $2`,
+          [delta, s.userId]
+        );
+      }
+    } catch (err) {
+      console.error("MMR update error for session", sessionId, ":", err.message);
+    }
+  }
 }
 
 module.exports = { saveRound, saveRoundPoints, finalizeSession };

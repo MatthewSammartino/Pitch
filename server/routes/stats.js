@@ -119,7 +119,7 @@ function buildStatsQuery(whereClause) {
     )
     SELECT
       u.id, u.display_name, u.avatar_url,
-      u.chip_balance,
+      u.chip_balance, u.mmr,
       (COALESCE(ms.games_played, 0) + COALESCE(ls.games_played, 0)) AS games_played,
       (COALESCE(ms.wins,         0) + COALESCE(ls.wins,         0)) AS wins,
       ms.avg_score,
@@ -165,6 +165,7 @@ function formatRow(r) {
     recent_form:     r.recent_form_pct != null ? +(r.recent_form_pct / 100).toFixed(3) : null,
     clutch_rate:     r.clutch_rate_pct != null ? +(r.clutch_rate_pct / 100).toFixed(3) : null,
     chip_balance:    r.chip_balance    != null ? parseInt(r.chip_balance)               : 0,
+    mmr:             r.mmr             != null ? parseInt(r.mmr)                        : 1000,
   };
 }
 

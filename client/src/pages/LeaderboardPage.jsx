@@ -254,7 +254,7 @@ export default function LeaderboardPage() {
               <>
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: "36px 1fr 64px 64px 64px 72px",
+                  gridTemplateColumns: "36px 1fr 64px 64px 64px 72px 56px",
                   gap: "0 12px",
                   padding: "0 16px 8px",
                   color: "#3a5a3a",
@@ -266,6 +266,7 @@ export default function LeaderboardPage() {
                   <div style={{ textAlign: "right" }}>Win%</div>
                   <div style={{ textAlign: "right" }}>Bid%</div>
                   <div style={{ textAlign: "right" }}>Avg Score</div>
+                  <div style={{ textAlign: "right" }}>MMR</div>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -277,7 +278,7 @@ export default function LeaderboardPage() {
                         key={row.id}
                         style={{
                           display: "grid",
-                          gridTemplateColumns: "36px 1fr 64px 64px 64px 72px",
+                          gridTemplateColumns: "36px 1fr 64px 64px 64px 72px 56px",
                           gap: "0 12px",
                           alignItems: "center",
                           padding: "12px 16px",
@@ -328,6 +329,7 @@ export default function LeaderboardPage() {
                         <div style={{ textAlign: "right", fontSize: 14, color: "#4fc3a1" }}>{fmt(row.win_pct, true)}</div>
                         <div style={{ textAlign: "right", fontSize: 14, color: "#8aab8a" }}>{fmt(row.bid_rate, true)}</div>
                         <div style={{ textAlign: "right", fontSize: 14, color: "#8aab8a" }}>{fmt(row.avg_score)}</div>
+                        <div style={{ textAlign: "right", fontSize: 14, color: "#c090a0" }}>{row.mmr ?? 1000}</div>
                       </div>
                     );
                   })}

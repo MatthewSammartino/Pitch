@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
+import { useSocketContext } from "../context/SocketContext";
 import Navbar from "../components/layout/Navbar";
 import StatsBar from "../components/dashboard/StatsBar";
 import TutorialBanner from "../components/TutorialBanner";
@@ -78,8 +79,9 @@ function Btn({ children, onClick, disabled, gold }) {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-  const navigate  = useNavigate();
+  const { user }    = useAuth();
+  const navigate    = useNavigate();
+  const { getSocket } = useSocketContext();
 
   // Create Lobby state
   const [createOpen, setCreateOpen] = useState(false);
@@ -100,17 +102,41 @@ export default function DashboardPage() {
   const [soloBusy, setSoloBusy] = useState(false);
 
   // Public lobbies
-  const [publicLobbies, setPublicLobbies]     = useState([]);
-  const [lobbiesLoading, setLobbiesLoading]   = useState(true);
-  const [queueBusy, setQueueBusy]             = useState(false);
+  const [publicLobbies, setPublicLobbies]   = useState([]);
+  const [lobbiesLoading, setLobbiesLoading] = useState(true);
+
+  // Queue state
+  const [inQueue, setInQueue]           = useState(false);
+  const [queueVariant, setQueueVariant] = useState(4);
+  const [queueCounts, setQueueCounts]   = useState({ 4: 0, 6: 0 });
+  const [userMmr, setUserMmr]           = useState(null);
 
   useEffect(() => {
     if (!user?.is_guest) {
       api.get("/api/chips/balance")
         .then((d) => setChipBalance(d.balance))
         .catch(() => {});
+      api.get("/api/stats/me")
+        .then((d) => setUserMmr(d.mmr ?? null))
+        .catch(() => {});
     }
   }, [user]);
+
+  // Socket connection for real-time queue counts + match notification
+  useEffect(() => {
+    if (user?.is_guest) return;
+    const sock = getSocket("/lobby");
+    sock.emit("queue:get_counts");
+    sock.on("queue:count", (counts) => setQueueCounts(counts));
+    sock.on("queue:matched", ({ sessionId }) => {
+      setInQueue(false);
+      navigate(`/lobby/${sessionId}`);
+    });
+    return () => {
+      sock.off("queue:count");
+      sock.off("queue:matched");
+    };
+  }, [user, getSocket, navigate]);
 
   useEffect(() => {
     function fetchPublicLobbies() {
@@ -132,10 +158,13 @@ export default function DashboardPage() {
   }
 
   function joinQueue() {
-    setQueueBusy(true);
-    api.post("/api/sessions/queue")
-      .then((s) => navigate(`/lobby/${s.id}`))
-      .catch(() => setQueueBusy(false));
+    setInQueue(true);
+    getSocket("/lobby").emit("queue:join", { variant: queueVariant });
+  }
+
+  function leaveQueue() {
+    setInQueue(false);
+    getSocket("/lobby").emit("queue:leave");
   }
 
   function joinLobby() {
@@ -177,12 +206,53 @@ export default function DashboardPage() {
         {/* ── Open Lobbies ──────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 36 }}>
           <div style={{ ...S.sectionTitle, marginBottom: 12 }}>
-            <span>Open Lobbies</span>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn onClick={joinQueue} disabled={queueBusy} gold>
-                {queueBusy ? "Finding game…" : "Join Queue"}
-              </Btn>
-            </div>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              Open Lobbies
+              {userMmr != null && (
+                <span style={{ fontSize: 12, color: "#c090a0", fontFamily: "Georgia,serif", fontWeight: 400 }}>
+                  ⚡ {userMmr} MMR
+                </span>
+              )}
+            </span>
+
+            {!user?.is_guest && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {/* Variant selector */}
+                {!inQueue && (
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {[4, 6].map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => setQueueVariant(v)}
+                        style={{
+                          padding: "4px 12px", borderRadius: 12, fontSize: 12,
+                          border: `1px solid ${queueVariant === v ? "#f0c040" : "#2a5c2a"}`,
+                          background: queueVariant === v ? "rgba(240,192,64,.12)" : "transparent",
+                          color: queueVariant === v ? "#f0c040" : "#5a7a5a",
+                          cursor: "pointer", fontFamily: "Georgia,serif",
+                        }}
+                      >
+                        {v}p
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Queue button */}
+                {inQueue ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: "#4fc3a1", fontSize: 13 }}>
+                      Searching… ({queueCounts[queueVariant] ?? 0} in queue)
+                    </span>
+                    <Btn onClick={leaveQueue}>Leave</Btn>
+                  </div>
+                ) : (
+                  <Btn onClick={joinQueue} gold>
+                    Join Queue · {queueCounts[queueVariant] ?? 0} waiting
+                  </Btn>
+                )}
+              </div>
+            )}
           </div>
 
           {lobbiesLoading ? (
