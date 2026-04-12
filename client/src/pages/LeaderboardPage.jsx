@@ -212,6 +212,9 @@ export default function LeaderboardPage() {
           <TabBtn active={activeTab === "rankings"} onClick={() => setActiveTab("rankings")}>
             Rankings
           </TabBtn>
+          <TabBtn active={activeTab === "chips"} onClick={() => setActiveTab("chips")}>
+            Chip Leaders
+          </TabBtn>
           {user && !user.is_guest && (
             <TabBtn active={activeTab === "mystats"} onClick={() => setActiveTab("mystats")}>
               My Stats
@@ -225,74 +228,6 @@ export default function LeaderboardPage() {
             <p style={{ color: "#3a5a3a", fontSize: 13, margin: "0 0 20px" }}>
               All-time rankings across fully human games (no bots).
             </p>
-
-            {/* ── Chip Leaders ── */}
-            {!loading && chipLeaders.length > 0 && (
-              <div style={{
-                background: "rgba(255,255,255,.02)", border: "1px solid #2a3a10",
-                borderRadius: 12, padding: "20px", marginBottom: 28,
-              }}>
-                <div style={{
-                  fontFamily: "'Playfair Display',serif", color: "#f0c040",
-                  fontSize: 15, marginBottom: 4,
-                }}>
-                  Chip Leaders
-                </div>
-                <div style={{ color: "#3a5a3a", fontSize: 12, marginBottom: 16 }}>
-                  Current chip balances — earned through wagered games and daily claims.
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {chipLeaders.map((row, i) => {
-                    const isMe = row.id === user?.id;
-                    const initial = row.display_name?.[0]?.toUpperCase() ?? "?";
-                    const rankColor = i === 0 ? "#f0c040" : i === 1 ? "#d8d8d8" : i === 2 ? "#c87a3a" : "#3a5a3a";
-                    return (
-                      <div key={row.id} style={{
-                        display: "flex", alignItems: "center", gap: 12,
-                        padding: "10px 14px", borderRadius: 10,
-                        border: isMe ? "1px solid #f0c040" : "1px solid #1e4a1e",
-                        background: isMe ? "rgba(240,192,64,.04)" : "rgba(255,255,255,.02)",
-                      }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: rankColor, width: 20, flexShrink: 0 }}>
-                          {i + 1}
-                        </div>
-                        {row.avatar_url ? (
-                          <img
-                            src={row.avatar_url}
-                            alt={row.display_name}
-                            style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                          />
-                        ) : (
-                          <div style={{
-                            width: 28, height: 28, borderRadius: "50%",
-                            background: "#1e4a1e", flexShrink: 0,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            color: "#f0c040", fontSize: 12, fontWeight: 700,
-                          }}>
-                            {initial}
-                          </div>
-                        )}
-                        <div style={{
-                          flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                          color: isMe ? "#f0c040" : "#f0e8d0",
-                          fontSize: 14, fontWeight: isMe ? 700 : 400,
-                        }}>
-                          {isMe ? "You" : row.display_name}
-                          {isMe && (
-                            <span style={{ color: "#3a5a3a", fontSize: 11, fontWeight: 400, marginLeft: 8 }}>
-                              ({row.display_name})
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ color: "#f0c040", fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
-                          🪙 {row.chip_balance.toLocaleString()}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {error && (
               <div style={{ color: "#e05c5c", fontSize: 14, padding: "12px 0" }}>{error}</div>
@@ -398,6 +333,85 @@ export default function LeaderboardPage() {
                   })}
                 </div>
               </>
+            )}
+          </>
+        )}
+
+        {/* ── Chip Leaders tab ─────────────────────────────────────────────── */}
+        {activeTab === "chips" && (
+          <>
+            <p style={{ color: "#3a5a3a", fontSize: 13, margin: "0 0 20px" }}>
+              Current chip balances — earned through wagered games and daily claims.
+            </p>
+
+            {loading && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} style={{
+                    height: 52, borderRadius: 10,
+                    background: "rgba(255,255,255,.03)", border: "1px solid #1a3a1a",
+                  }} />
+                ))}
+              </div>
+            )}
+
+            {!loading && chipLeaders.length === 0 && (
+              <div style={{ color: "#3a5a3a", fontSize: 14, textAlign: "center", padding: "40px 0" }}>
+                No chip data yet.
+              </div>
+            )}
+
+            {!loading && chipLeaders.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {chipLeaders.map((row, i) => {
+                  const isMe = row.id === user?.id;
+                  const initial = row.display_name?.[0]?.toUpperCase() ?? "?";
+                  const rankColor = i === 0 ? "#f0c040" : i === 1 ? "#d8d8d8" : i === 2 ? "#c87a3a" : "#3a5a3a";
+                  return (
+                    <div key={row.id} style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "12px 16px", borderRadius: 10,
+                      border: isMe ? "1px solid #f0c040" : "1px solid #1e4a1e",
+                      background: isMe ? "rgba(240,192,64,.04)" : "rgba(255,255,255,.02)",
+                    }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: rankColor, width: 24, flexShrink: 0 }}>
+                        {i + 1}
+                      </div>
+                      {row.avatar_url ? (
+                        <img
+                          src={row.avatar_url}
+                          alt={row.display_name}
+                          style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 32, height: 32, borderRadius: "50%",
+                          background: "#1e4a1e", flexShrink: 0,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#f0c040", fontSize: 13, fontWeight: 700,
+                        }}>
+                          {initial}
+                        </div>
+                      )}
+                      <div style={{
+                        flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        color: isMe ? "#f0c040" : "#f0e8d0",
+                        fontSize: 14, fontWeight: isMe ? 700 : 400,
+                      }}>
+                        {isMe ? "You" : row.display_name}
+                        {isMe && (
+                          <span style={{ color: "#3a5a3a", fontSize: 11, fontWeight: 400, marginLeft: 8 }}>
+                            ({row.display_name})
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ color: "#f0c040", fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
+                        🪙 {row.chip_balance.toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </>
         )}
