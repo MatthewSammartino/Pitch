@@ -43,11 +43,10 @@ class QueueManager {
 
   /** Add or update a player in the queue for a variant. */
   enqueue(userId, mmr, variant, socketId) {
-    const q = this.queues[variant];
-    if (!q) return;
+    if (!this.queues[variant]) return;
     // Remove any existing entry for this user (re-joining)
     this.dequeue(userId);
-    q.push({ userId, mmr: mmr || 1000, socketId, joinedAt: Date.now() });
+    this.queues[variant].push({ userId, mmr: mmr || 1000, socketId, joinedAt: Date.now() });
   }
 
   /** Remove a player from all queues. */

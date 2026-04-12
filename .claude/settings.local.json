@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -E \"\\\\.sql$\")"
+      "Bash(grep -E \"\\\\.sql$\")",
+      "Bash(npm install:*)",
+      "Bash(where node:*)",
+      "Read(//c/Program Files/nodejs//**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Bash(\"/c/Program Files/nodejs/npm.cmd\" install --save-dev jest)",
+      "Bash(npx jest:*)",
+      "Bash(node node_modules/.bin/jest --verbose)",
+      "Bash(where.exe node:*)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" node_modules/.bin/jest --verbose)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" ./node_modules/jest/bin/jest.js --verbose)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" server/node_modules/jest-cli/bin/jest.js --verbose --rootDir server)",
+      "Bash(ls:*)",
+      "Bash(cmd.exe /c \"node_modules\\\\\\\\.bin\\\\\\\\jest.cmd --verbose\")",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" -e \"require\\('child_process'\\).execSync\\('node_modules\\\\\\\\\\\\\\\\.bin\\\\\\\\\\\\\\\\jest.cmd --verbose', {stdio:'inherit', cwd:'C:\\\\\\\\\\\\\\\\Users\\\\\\\\\\\\\\\\danie\\\\\\\\\\\\\\\\Documents\\\\\\\\\\\\\\\\Projects\\\\\\\\\\\\\\\\Pitch\\\\\\\\\\\\\\\\server'}\\)\")",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" node_modules/jest-cli/bin/jest.js --verbose)",
+      "Bash(/c/Program Files/nodejs/node.exe:*)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" -e \"console.log\\(require.resolve\\('jest'\\)\\)\")",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" \"/c/Program Files/nodejs/node_modules/npm/bin/npm-cli.js\" install)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" node_modules/jest/bin/jest.js --verbose)"
     ]
   }
 }
