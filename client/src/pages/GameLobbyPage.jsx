@@ -245,12 +245,21 @@ export default function GameLobbyPage() {
   const mySeatIdx = lobby?.seats?.findIndex((s) => s?.userId === user?.id);
   const iSeated   = mySeatIdx >= 0;
 
+  // Solo mode: auto-seat in first empty slot once lobby loads
+  useEffect(() => {
+    if (!isSolo || !lobby || iSeated || !socketRef.current) return;
+    const emptySeat = lobby.seats.findIndex((s) => s === null);
+    if (emptySeat >= 0) {
+      socketRef.current.emit("lobby:take_seat", { sessionId, seatIndex: emptySeat });
+    }
+  }, [isSolo, lobby, iSeated, sessionId]);
+
   // Solo mode: once seated, auto-fill bots and start
   useEffect(() => {
     if (!isSolo || !iSeated || soloStartedRef.current || !socketRef.current) return;
     soloStartedRef.current = true;
     socketRef.current.emit("lobby:fill_bots", { sessionId });
-    setTimeout(() => socketRef.current?.emit("lobby:start_game", { sessionId }), 400);
+    setTimeout(() => socketRef.current?.emit("lobby:start_game", { sessionId }), 600);
   }, [isSolo, iSeated, sessionId]);
 
   return (

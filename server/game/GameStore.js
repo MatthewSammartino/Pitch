@@ -70,6 +70,7 @@ class LobbyState {
       userId:      s.userId,
       displayName: s.displayName,
       avatarUrl:   s.avatarUrl,
+      isBot:       !!s.isBot,
     }));
   }
 
