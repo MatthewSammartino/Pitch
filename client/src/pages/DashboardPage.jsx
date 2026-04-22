@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import { useSocketContext } from "../context/SocketContext";
+import useIsMobile from "../hooks/useIsMobile";
 import Navbar from "../components/layout/Navbar";
 import StatsBar from "../components/dashboard/StatsBar";
 import TutorialModal from "../components/TutorialModal";
@@ -82,6 +83,7 @@ export default function DashboardPage() {
   const { user }    = useAuth();
   const navigate    = useNavigate();
   const { getSocket } = useSocketContext();
+  const isMobile    = useIsMobile();
 
   // Create Lobby state
   const [createOpen, setCreateOpen] = useState(false);
@@ -215,7 +217,13 @@ export default function DashboardPage() {
 
         {/* ── Open Lobbies ──────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 36 }}>
-          <div style={{ ...S.sectionTitle, marginBottom: 12 }}>
+          <div style={{
+            ...S.sectionTitle,
+            marginBottom: 12,
+            flexDirection: isMobile ? "column" : "row",
+            alignItems: isMobile ? "flex-start" : "center",
+            gap: isMobile ? 8 : undefined,
+          }}>
             <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
               Open Lobbies
               {userMmr != null && (
@@ -226,7 +234,7 @@ export default function DashboardPage() {
             </span>
 
             {!user?.is_guest && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 {/* Variant selector */}
                 {!inQueue && (
                   <div style={{ display: "flex", gap: 4 }}>
@@ -250,7 +258,7 @@ export default function DashboardPage() {
 
                 {/* Queue button */}
                 {inQueue ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ color: "#4fc3a1", fontSize: 13 }}>
                       Searching… ({queueCounts[queueVariant] ?? 0} in queue)
                     </span>
@@ -321,7 +329,7 @@ export default function DashboardPage() {
         {/* ── Play Now ──────────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 40 }}>
           <div style={S.sectionTitle}><span>Play Now</span></div>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: isMobile ? 12 : 16, flexWrap: "wrap" }}>
 
             {/* Create Lobby */}
             <div style={S.ctaCard}>

@@ -1,8 +1,12 @@
+import useIsMobile from "../../hooks/useIsMobile";
+
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 const SUIT_NAMES   = { h: "Hearts", d: "Diamonds", c: "Clubs", s: "Spades" };
 const TEAM_COLORS  = ["#4fc3a1", "#f0c040", "#e07a5f"];
 
 export default function ScoreBoard({ game, myUserId }) {
+  const isMobile = useIsMobile();
+
   if (!game) return null;
 
   const statusLabel = () => {
@@ -22,6 +26,36 @@ export default function ScoreBoard({ game, myUserId }) {
     if (game.status === "GAME_OVER") return "Game Over!";
     return "";
   };
+
+  if (isMobile) {
+    return (
+      <div style={{
+        background: "rgba(7,26,7,0.9)",
+        borderBottom: "1px solid #1e4a1e",
+        padding: "8px 12px",
+        fontSize: 12,
+      }}>
+        {/* Row 1: team scores */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
+          {(game.teamNames ?? ["A", "B"]).map((name, t) => (
+            <div key={t}>
+              <span style={{ color: TEAM_COLORS[t] }}>{name}</span>
+              <span style={{ color: "#f0e8d0", fontWeight: 700, marginLeft: 6, fontSize: 16 }}>
+                {game.teamScores[t]}
+              </span>
+            </div>
+          ))}
+          <span style={{ color: "#3a5a3a", fontSize: 11 }}>
+            Rnd {game.roundNumber}
+          </span>
+        </div>
+        {/* Row 2: status */}
+        <div style={{ color: "#8aab8a", fontStyle: "italic", textAlign: "center", marginTop: 4, fontSize: 11 }}>
+          {statusLabel()}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{

@@ -135,11 +135,11 @@ function RoundEntry({ round, teamNames, index }) {
   );
 }
 
-export default function RoundHistoryPanel({ rounds, teamNames }) {
+export default function RoundHistoryPanel({ rounds, teamNames, isMobile }) {
   if (!rounds || rounds.length === 0) {
     return (
       <div style={{
-        width: 200, flexShrink: 0,
+        width: isMobile ? "100%" : 200, flexShrink: 0,
         fontFamily: "Georgia,serif",
         padding: "12px 8px",
       }}>
@@ -153,10 +153,10 @@ export default function RoundHistoryPanel({ rounds, teamNames }) {
 
   return (
     <div style={{
-      width: 200, flexShrink: 0,
+      width: isMobile ? "100%" : 200, flexShrink: 0,
       fontFamily: "Georgia,serif",
       padding: "12px 8px",
-      maxHeight: "calc(100vh - 140px)",
+      maxHeight: isMobile ? 200 : "calc(100vh - 140px)",
       overflowY: "auto",
     }}>
       <div style={{ fontSize: 10, color: "#3a5a3a", letterSpacing: 1, marginBottom: 8 }}>

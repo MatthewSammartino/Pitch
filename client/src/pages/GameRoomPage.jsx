@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useSocketContext } from "../context/SocketContext";
+import useIsMobile from "../hooks/useIsMobile";
 import Navbar from "../components/layout/Navbar";
 import ScoreBoard from "../components/game/ScoreBoard";
 import HandDisplay from "../components/game/HandDisplay";
@@ -34,6 +35,7 @@ export default function GameRoomPage() {
   const [chatMessages, setChatMessages] = useState([]);
   const [reactions, setReactions] = useState(new Map());
 
+  const isMobile = useIsMobile();
   const socketRef = useRef(null);
   const reactionCounterRef = useRef(0);
 
@@ -264,25 +266,43 @@ export default function GameRoomPage() {
 
       {/* Game table */}
       {game && (
-        <div style={{ flex: 1, display: "flex", gap: 0, maxWidth: 1040, margin: "0 auto", width: "100%", padding: "8px 0" }}>
+        <div style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          gap: 0,
+          maxWidth: isMobile ? "100%" : 1040,
+          margin: "0 auto",
+          width: "100%",
+          padding: isMobile ? "4px 0" : "8px 0",
+        }}>
 
-          {/* Left: round history + chat */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-            <RoundHistoryPanel rounds={roundHistory} teamNames={game.teamNames} />
-            <div style={{ width: 200 }}>
-              <ChatPanel
-                messages={chatMessages}
-                onSend={sendChat}
-                myUserId={user?.id}
-              />
+          {/* Left: round history + chat — hidden on mobile, shown below instead */}
+          {!isMobile && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+              <RoundHistoryPanel rounds={roundHistory} teamNames={game.teamNames} />
+              <div style={{ width: 200 }}>
+                <ChatPanel
+                  messages={chatMessages}
+                  onSend={sendChat}
+                  myUserId={user?.id}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Right: game play area */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 12px", minWidth: 0 }}>
+          {/* Game play area */}
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: isMobile ? "4px 4px" : "8px 12px",
+            minWidth: 0,
+          }}>
 
           {/* Poker table */}
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ marginBottom: isMobile ? 6 : 10, width: isMobile ? "100%" : "auto" }}>
             <PokerTable
               game={game}
               mySeat={mySeat}
@@ -347,6 +367,18 @@ export default function GameRoomPage() {
             </div>
           )}
           </div>{/* end play area */}
+
+          {/* Mobile: round history + chat below game area */}
+          {isMobile && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 8px" }}>
+              <RoundHistoryPanel rounds={roundHistory} teamNames={game.teamNames} isMobile />
+              <ChatPanel
+                messages={chatMessages}
+                onSend={sendChat}
+                myUserId={user?.id}
+              />
+            </div>
+          )}
         </div>
       )}
 

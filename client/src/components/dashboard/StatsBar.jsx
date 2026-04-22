@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
+import useIsMobile from "../../hooks/useIsMobile";
 
 function Stat({ label, value }) {
   return (
@@ -16,6 +17,7 @@ function Stat({ label, value }) {
 }
 
 export default function StatsBar() {
+  const isMobile = useIsMobile();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,28 +40,31 @@ export default function StatsBar() {
     <div style={{
       background: "rgba(255,255,255,.03)",
       borderBottom: "1px solid #1e4a1e",
-      padding: "12px 24px",
+      padding: isMobile ? "10px 12px" : "12px 24px",
     }}>
       <div style={{
         maxWidth: 860,
         margin: "0 auto",
         display: "flex",
         alignItems: "center",
-        gap: 32,
+        gap: isMobile ? 12 : 32,
         flexWrap: "wrap",
+        justifyContent: isMobile ? "center" : "flex-start",
       }}>
-        <div style={{ color: "#3a5a3a", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", flexShrink: 0 }}>
-          Your Stats
-        </div>
+        {!isMobile && (
+          <div style={{ color: "#3a5a3a", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", flexShrink: 0 }}>
+            Your Stats
+          </div>
+        )}
 
         <Stat label="Games" value={stats.games_played} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: "#4fc3a1", fontSize: 16, fontWeight: 700, fontFamily: "Georgia,serif" }}>
+          <span style={{ color: "#4fc3a1", fontSize: isMobile ? 14 : 16, fontWeight: 700, fontFamily: "Georgia,serif" }}>
             {stats.wins}W
           </span>
           <span style={{ color: "#3a5a3a" }}>·</span>
-          <span style={{ color: "#e05c5c", fontSize: 16, fontWeight: 700, fontFamily: "Georgia,serif" }}>
+          <span style={{ color: "#e05c5c", fontSize: isMobile ? 14 : 16, fontWeight: 700, fontFamily: "Georgia,serif" }}>
             {losses}L
           </span>
         </div>
@@ -68,19 +73,21 @@ export default function StatsBar() {
         <Stat label="Bid %" value={bidRate} />
         <Stat label="Avg Score" value={avgScore} />
 
-        <div style={{ marginLeft: "auto", flexShrink: 0 }}>
-          <Link
-            to="/leaderboard"
-            style={{
-              color: "#f0c040",
-              fontSize: 13,
-              fontFamily: "Georgia,serif",
-              textDecoration: "none",
-            }}
-          >
-            View Leaderboard →
-          </Link>
-        </div>
+        {!isMobile && (
+          <div style={{ marginLeft: "auto", flexShrink: 0 }}>
+            <Link
+              to="/leaderboard"
+              style={{
+                color: "#f0c040",
+                fontSize: 13,
+                fontFamily: "Georgia,serif",
+                textDecoration: "none",
+              }}
+            >
+              View Leaderboard →
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

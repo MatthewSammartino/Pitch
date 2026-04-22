@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { api } from "../../lib/api";
+import useIsMobile from "../../hooks/useIsMobile";
 
 const NAV_LINKS = [
   { label: "Play",        to: "/dashboard" },
@@ -112,7 +113,9 @@ const S = {
 export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [chipBalance, setChipBalance] = useState(null);
 
   useEffect(() => {
@@ -122,104 +125,189 @@ export default function Navbar() {
       .catch(() => {});
   }, [user]);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
   const initial = user?.display_name?.[0]?.toUpperCase() || "?";
 
   return (
-    <nav style={S.nav}>
-      {/* Logo */}
-      <Link to={user ? "/dashboard" : "/"} style={S.logo}>
-        🃏 Pitch
-      </Link>
+    <>
+      <nav style={{ ...S.nav, padding: isMobile ? "0 12px" : "0 24px" }}>
+        {/* Logo */}
+        <Link to={user ? "/dashboard" : "/"} style={S.logo}>
+          🃏{!isMobile && " Pitch"}
+        </Link>
 
-      {/* Center nav links */}
-      <div style={S.center}>
-        {NAV_LINKS.map(({ label, to }) => {
-          const active = location.pathname === to;
-          return (
-            <Link key={to} to={to} style={S.navLink(active)}>
-              {label}
-            </Link>
-          );
-        })}
-      </div>
+        {/* Center nav links — desktop only */}
+        {!isMobile && (
+          <div style={S.center}>
+            {NAV_LINKS.map(({ label, to }) => {
+              const active = location.pathname === to;
+              return (
+                <Link key={to} to={to} style={S.navLink(active)}>
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
-      {/* Right side */}
-      <div style={S.right}>
-        {!user ? (
-          <a href="/api/auth/google" style={S.signInBtn}>Sign In</a>
-        ) : (
-          <>
-          {chipBalance !== null && (
-            <Link
-              to="/chips"
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "5px 12px", borderRadius: 14,
-                border: "1px solid #3a5c1a",
-                background: "rgba(240,192,64,.06)",
-                color: "#f0c040", fontSize: 13,
-                textDecoration: "none", fontFamily: "Georgia,serif",
-                whiteSpace: "nowrap",
-              }}
-            >
-              🪙 {chipBalance.toLocaleString()}
-            </Link>
-          )}
-          <div style={{ position: "relative" }}>
-            {user.avatar_url ? (
-              <img
-                src={user.avatar_url}
-                alt={user.display_name}
-                style={S.avatar}
-                onClick={() => setOpen((o) => !o)}
-              />
-            ) : (
-              <div style={S.avatarInitial} onClick={() => setOpen((o) => !o)}>
-                {initial}
-              </div>
+        {/* Right side */}
+        <div style={{ ...S.right, gap: isMobile ? 8 : 12 }}>
+          {!user ? (
+            <a href="/api/auth/google" style={S.signInBtn}>Sign In</a>
+          ) : (
+            <>
+            {chipBalance !== null && !isMobile && (
+              <Link
+                to="/chips"
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "5px 12px", borderRadius: 14,
+                  border: "1px solid #3a5c1a",
+                  background: "rgba(240,192,64,.06)",
+                  color: "#f0c040", fontSize: 13,
+                  textDecoration: "none", fontFamily: "Georgia,serif",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                🪙 {chipBalance.toLocaleString()}
+              </Link>
             )}
-
-            {open && (
-              <>
-                <div
-                  style={{ position: "fixed", inset: 0, zIndex: 150 }}
-                  onClick={() => setOpen(false)}
+            <div style={{ position: "relative" }}>
+              {user.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt={user.display_name}
+                  style={S.avatar}
+                  onClick={() => setOpen((o) => !o)}
                 />
-                <div style={S.dropdown}>
-                  <div style={{ padding: "10px 18px 8px", borderBottom: "1px solid #1e4a1e", marginBottom: 4 }}>
-                    <div style={{ color: "#f0e8d0", fontWeight: 700, fontSize: 14 }}>
-                      {user.display_name}
+              ) : (
+                <div style={S.avatarInitial} onClick={() => setOpen((o) => !o)}>
+                  {initial}
+                </div>
+              )}
+
+              {open && (
+                <>
+                  <div
+                    style={{ position: "fixed", inset: 0, zIndex: 150 }}
+                    onClick={() => setOpen(false)}
+                  />
+                  <div style={S.dropdown}>
+                    <div style={{ padding: "10px 18px 8px", borderBottom: "1px solid #1e4a1e", marginBottom: 4 }}>
+                      <div style={{ color: "#f0e8d0", fontWeight: 700, fontSize: 14 }}>
+                        {user.display_name}
+                        {user.is_guest && (
+                          <span style={{ color: "#5a7a5a", fontWeight: 400, fontSize: 11, marginLeft: 6 }}>Guest</span>
+                        )}
+                      </div>
+                      {!user.is_guest && (
+                        <div style={{ color: "#5a7a5a", fontSize: 12 }}>{user.email}</div>
+                      )}
                       {user.is_guest && (
-                        <span style={{ color: "#5a7a5a", fontWeight: 400, fontSize: 11, marginLeft: 6 }}>Guest</span>
+                        <a href="/api/auth/google" style={{ color: "#f0c040", fontSize: 12 }}>
+                          Sign in to save progress →
+                        </a>
                       )}
                     </div>
                     {!user.is_guest && (
-                      <div style={{ color: "#5a7a5a", fontSize: 12 }}>{user.email}</div>
+                      <Link to="/profile" style={S.dropItem} onClick={() => setOpen(false)}>
+                        Profile &amp; Stats
+                      </Link>
                     )}
-                    {user.is_guest && (
-                      <a href="/api/auth/google" style={{ color: "#f0c040", fontSize: 12 }}>
-                        Sign in to save progress →
-                      </a>
-                    )}
+                    <button
+                      style={{ ...S.dropItem, color: "#e05c5c" }}
+                      onClick={() => { setOpen(false); logout(); }}
+                    >
+                      Sign out
+                    </button>
                   </div>
-                  {!user.is_guest && (
-                    <Link to="/profile" style={S.dropItem} onClick={() => setOpen(false)}>
-                      Profile &amp; Stats
-                    </Link>
-                  )}
-                  <button
-                    style={{ ...S.dropItem, color: "#e05c5c" }}
-                    onClick={() => { setOpen(false); logout(); }}
-                  >
-                    Sign out
-                  </button>
-                </div>
-              </>
+                </>
+              )}
+            </div>
+            </>
+          )}
+
+          {/* Hamburger — mobile only */}
+          {isMobile && (
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              style={{
+                background: "none", border: "1px solid #2a5c2a",
+                borderRadius: 6, padding: "4px 7px",
+                cursor: "pointer", display: "flex",
+                flexDirection: "column", gap: 3,
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <span style={{ display: "block", width: 16, height: 2, background: "#8aab8a", borderRadius: 1 }} />
+              <span style={{ display: "block", width: 16, height: 2, background: "#8aab8a", borderRadius: 1 }} />
+              <span style={{ display: "block", width: 16, height: 2, background: "#8aab8a", borderRadius: 1 }} />
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* Mobile nav drawer */}
+      {isMobile && menuOpen && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,.4)" }}
+            onClick={() => setMenuOpen(false)}
+          />
+          <div style={{
+            position: "fixed",
+            top: 56, left: 0, right: 0,
+            zIndex: 95,
+            background: "rgba(7,26,7,0.98)",
+            borderBottom: "1px solid #1e4a1e",
+            padding: "8px 0",
+            display: "flex",
+            flexDirection: "column",
+          }}>
+            {NAV_LINKS.map(({ label, to }) => {
+              const active = location.pathname === to;
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    color: active ? "#f0c040" : "#8aab8a",
+                    textDecoration: "none",
+                    fontSize: 15,
+                    fontFamily: "Georgia,serif",
+                    padding: "12px 24px",
+                    borderLeft: active ? "3px solid #f0c040" : "3px solid transparent",
+                  }}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+            {chipBalance !== null && (
+              <Link
+                to="/chips"
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  color: "#f0c040",
+                  textDecoration: "none",
+                  fontSize: 15,
+                  fontFamily: "Georgia,serif",
+                  padding: "12px 24px",
+                  borderTop: "1px solid #1e4a1e",
+                  borderLeft: "3px solid transparent",
+                }}
+              >
+                🪙 {chipBalance.toLocaleString()} chips
+              </Link>
             )}
           </div>
-          </>
-        )}
-      </div>
-    </nav>
+        </>
+      )}
+    </>
   );
 }

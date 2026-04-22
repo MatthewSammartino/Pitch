@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { useSocketContext } from "../context/SocketContext";
+import useIsMobile from "../hooks/useIsMobile";
 import Navbar from "../components/layout/Navbar";
 import ChatPanel from "../components/game/ChatPanel";
 
@@ -34,14 +35,16 @@ const S = {
     justifyContent: "center",
     flexWrap: "wrap",
   },
-  seat: (occupied, isMe, teamColor) => ({
-    width: 150,
+  seat: (occupied, isMe, teamColor, mobile) => ({
+    width: mobile ? undefined : 150,
+    flex: mobile ? "1 1 calc(50% - 8px)" : undefined,
+    minWidth: mobile ? 0 : undefined,
     background: occupied
       ? `rgba(${isMe ? "79,195,161" : "30,74,30"},.18)`
       : "rgba(255,255,255,.03)",
     border: `1px solid ${occupied ? teamColor : "#1e4a1e"}`,
     borderRadius: 12,
-    padding: "16px 12px",
+    padding: mobile ? "12px 8px" : "16px 12px",
     textAlign: "center",
     cursor: occupied ? (isMe ? "default" : "not-allowed") : "pointer",
     transition: "border-color .15s, background .15s",
@@ -130,6 +133,7 @@ export default function GameLobbyPage() {
   const [searchParams] = useSearchParams();
   const isSolo = searchParams.get("solo") === "true";
 
+  const isMobile = useIsMobile();
   const [lobby, setLobby] = useState(null);
   const [error, setError] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
@@ -286,7 +290,7 @@ export default function GameLobbyPage() {
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <div style={{ fontSize: 11, color: "#3a5a3a", letterSpacing: 2, marginBottom: 6 }}>ROOM CODE</div>
             <div style={{
-              fontSize: 36, fontWeight: 700, letterSpacing: 8,
+              fontSize: isMobile ? 28 : 36, fontWeight: 700, letterSpacing: isMobile ? 4 : 8,
               color: "#f0c040", fontFamily: "Georgia,serif",
             }}>
               {lobby.shortCode}
@@ -372,7 +376,7 @@ export default function GameLobbyPage() {
                 return (
                   <div
                     key={i}
-                    style={S.seat(occupied, isMe, tc)}
+                    style={S.seat(occupied, isMe, tc, isMobile)}
                     onClick={() => !occupied && !iSeated && takeSeat(i)}
                     title={!occupied && !iSeated ? "Click to sit here" : ""}
                   >

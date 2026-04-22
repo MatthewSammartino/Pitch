@@ -1,3 +1,5 @@
+import useIsMobile from "../../hooks/useIsMobile";
+
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 const SUIT_COLORS  = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
 
@@ -18,18 +20,20 @@ function sortHand(hand) {
   });
 }
 
-function CardTile({ cardId, valid, onClick }) {
+function CardTile({ cardId, valid, onClick, compact }) {
   const { rank, suit } = parseCard(cardId);
   const color   = SUIT_COLORS[suit];
   const canPlay = valid !== undefined;
+  const w = compact ? 42 : 52;
+  const h = compact ? 62 : 76;
 
   return (
     <div
       onClick={canPlay && valid ? onClick : undefined}
       style={{
-        width: 52,
-        height: 76,
-        borderRadius: 8,
+        width: w,
+        height: h,
+        borderRadius: compact ? 6 : 8,
         border: `2px solid ${valid ? color : "#1e4a1e"}`,
         background: valid ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.02)",
         display: "flex",
@@ -44,13 +48,14 @@ function CardTile({ cardId, valid, onClick }) {
       onMouseEnter={(e) => { if (valid) e.currentTarget.style.transform = "translateY(-6px)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
     >
-      <div style={{ fontSize: 18, fontWeight: 700, color, lineHeight: 1 }}>{rank}</div>
-      <div style={{ fontSize: 20, color, lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</div>
+      <div style={{ fontSize: compact ? 14 : 18, fontWeight: 700, color, lineHeight: 1 }}>{rank}</div>
+      <div style={{ fontSize: compact ? 16 : 20, color, lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</div>
     </div>
   );
 }
 
 export default function HandDisplay({ hand, validCards, onPlayCard }) {
+  const isMobile = useIsMobile();
   const validSet = new Set(validCards || []);
 
   if (!hand || hand.length === 0) {
@@ -66,10 +71,10 @@ export default function HandDisplay({ hand, validCards, onPlayCard }) {
   return (
     <div style={{
       display: "flex",
-      gap: 8,
+      gap: isMobile ? 5 : 8,
       justifyContent: "center",
       flexWrap: "wrap",
-      padding: "16px 12px",
+      padding: isMobile ? "10px 8px" : "16px 12px",
     }}>
       {sorted.map((cardId) => (
         <CardTile
@@ -77,6 +82,7 @@ export default function HandDisplay({ hand, validCards, onPlayCard }) {
           cardId={cardId}
           valid={validCards !== undefined ? validSet.has(cardId) : undefined}
           onClick={() => onPlayCard?.(cardId)}
+          compact={isMobile}
         />
       ))}
     </div>
