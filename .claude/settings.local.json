@@ -20,7 +20,10 @@
       "Bash(/c/Program Files/nodejs/node.exe:*)",
       "Bash(\"/c/Program Files/nodejs/node.exe\" -e \"console.log\\(require.resolve\\('jest'\\)\\)\")",
       "Bash(\"/c/Program Files/nodejs/node.exe\" \"/c/Program Files/nodejs/node_modules/npm/bin/npm-cli.js\" install)",
-      "Bash(\"/c/Program Files/nodejs/node.exe\" node_modules/jest/bin/jest.js --verbose)"
+      "Bash(\"/c/Program Files/nodejs/node.exe\" node_modules/jest/bin/jest.js --verbose)",
+      "Bash(npx vite *)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/)",
+      "Bash(kill %1)"
     ]
   }
 }
