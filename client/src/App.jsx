@@ -3,6 +3,7 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import LandingPage    from "./pages/LandingPage";
 import DashboardPage  from "./pages/DashboardPage";
 import GroupPage      from "./pages/GroupPage";
+import LegacyGroupPage from "./pages/LegacyGroupPage";
 import ProfilePage    from "./pages/ProfilePage";
 import JoinGroupPage  from "./pages/JoinGroupPage";
 import GameLobbyPage  from "./pages/GameLobbyPage";
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/dashboard"         element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/groups"            element={<ProtectedRoute><GroupsPage /></ProtectedRoute>} />
       <Route path="/group/:slug"        element={<ProtectedRoute><GroupPage /></ProtectedRoute>} />
+      <Route path="/group/:slug/legacy" element={<ProtectedRoute><LegacyGroupPage /></ProtectedRoute>} />
       <Route path="/profile"            element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/lobby/:sessionId"   element={<ProtectedRoute><GameLobbyPage /></ProtectedRoute>} />
       <Route path="/game/:sessionId"    element={<ProtectedRoute><GameRoomPage /></ProtectedRoute>} />
