@@ -326,6 +326,38 @@ export default function GameLobbyPage() {
           </button>
         </div>
 
+        {/* Spectator banner — shown when user is connected but not seated */}
+        {lobby && !iSeated && (
+          <div style={{
+            background: "rgba(122,154,250,.06)", border: "1px solid #2a3a5a",
+            borderRadius: 8, padding: "10px 16px", marginBottom: 16,
+            color: "#7b9ef0", fontSize: 13, textAlign: "center",
+          }}>
+            👁 Spectating — pick an empty seat to join the game.
+          </div>
+        )}
+
+        {/* Spectator count + list */}
+        {lobby && lobby.spectatorCount > 0 && (
+          <div style={{
+            background: "rgba(255,255,255,.02)", border: "1px solid #1e4a1e",
+            borderRadius: 8, padding: "8px 14px", marginBottom: 20,
+            display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+          }}>
+            <span style={{ color: "#5a7a5a", fontSize: 12, letterSpacing: 1 }}>
+              👁 {lobby.spectatorCount} watching
+            </span>
+            {lobby.spectators?.map((sp) => (
+              <span key={sp.userId} style={{
+                fontSize: 12, color: sp.userId === user?.id ? "#7b9ef0" : "#8aab8a",
+                fontWeight: sp.userId === user?.id ? 700 : 400,
+              }}>
+                {sp.userId === user?.id ? "You" : sp.displayName}
+              </span>
+            ))}
+          </div>
+        )}
+
         {error && <div style={S.errorBox}>{error}</div>}
 
         {/* Team names (host editable) */}

@@ -57,7 +57,23 @@ function getPositionedSeats(game, mySeat) {
   };
 }
 
-export default function PokerTable({ game, mySeat, myHand, reactions, onReact }) {
+// Spectator layout — no "me", all seats positioned around the felt by seatIndex.
+// Seat 0 takes south, then we walk clockwise: west, (nw), north, (ne), east.
+function getSpectatorPositionedSeats(game) {
+  if (!game) return {};
+  const find = (i) => game.seats.find((s) => s.seatIndex === i);
+  if (game.variant === 6) {
+    return {
+      south: find(0), west: find(1), nw: find(2),
+      north: find(3), ne: find(4), east: find(5),
+    };
+  }
+  return {
+    south: find(0), west: find(1), north: find(2), east: find(3),
+  };
+}
+
+export default function PokerTable({ game, mySeat, myHand, reactions, onReact, spectatorMode = false }) {
   const isMobile = useIsMobile();
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef(null);
@@ -89,9 +105,13 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact })
     return () => document.removeEventListener("mousedown", onDown);
   }, [pickerOpen]);
 
-  if (!game || !mySeat) return null;
+  if (!game) return null;
+  // Player mode requires a seat; spectator mode renders without one.
+  if (!spectatorMode && !mySeat) return null;
 
-  const positioned = getPositionedSeats(game, mySeat);
+  const positioned = spectatorMode
+    ? getSpectatorPositionedSeats(game)
+    : getPositionedSeats(game, mySeat);
   const posMap = game.variant === 6 ? SEAT_POS_6 : SEAT_POS_4;
   const cardCount = myHand?.length ?? 0;
 
@@ -125,7 +145,7 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact })
     );
   }
 
-  const myTeamColor = TEAM_COLORS[mySeat.team] ?? "#8aab8a";
+  const myTeamColor = mySeat ? (TEAM_COLORS[mySeat.team] ?? "#8aab8a") : "#8aab8a";
   const myPos = posMap.south;
 
   const scaledHeight = TABLE_H * scale;
@@ -205,26 +225,30 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact })
         {Object.entries(positioned).map(([dir, seat]) => renderSeat(dir, seat))}
 
         {/* ── My seat (south) ───────────────────────────────────────────────── */}
-        <div style={{
-          position: "absolute",
-          left: myPos.left,
-          top:  myPos.top,
-          transform: "translate(-50%, -50%)",
-          zIndex: 5,
-        }}>
-          <PlayerSeat
-            seat={mySeat}
-            isMe
-            isActive={isActive(mySeat, game)}
-            isDealer={game.dealerSeat === mySeat.seatIndex}
-            cardCount={cardCount}
-            game={game}
-            reaction={reactions.get(mySeat.seatIndex) ?? null}
-            teamColor={myTeamColor}
-          />
-        </div>
+        {/* In spectator mode the south position is included in `positioned` already. */}
+        {!spectatorMode && mySeat && (
+          <div style={{
+            position: "absolute",
+            left: myPos.left,
+            top:  myPos.top,
+            transform: "translate(-50%, -50%)",
+            zIndex: 5,
+          }}>
+            <PlayerSeat
+              seat={mySeat}
+              isMe
+              isActive={isActive(mySeat, game)}
+              isDealer={game.dealerSeat === mySeat.seatIndex}
+              cardCount={cardCount}
+              game={game}
+              reaction={reactions.get(mySeat.seatIndex) ?? null}
+              teamColor={myTeamColor}
+            />
+          </div>
+        )}
 
-        {/* ── Emoji reaction picker ─────────────────────────────────────────── */}
+        {/* ── Emoji reaction picker — players only ───────────────────────────── */}
+        {!spectatorMode && mySeat && (
         <div
           ref={pickerRef}
           style={{
@@ -287,6 +311,7 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact })
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

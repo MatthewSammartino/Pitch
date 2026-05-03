@@ -132,6 +132,21 @@ module.exports = function lobbySocket(nsp) {
     });
 
     // ── lobby:join ──────────────────────────────────────────────────────────
+    // Helper: after the socket is in the room, register them as a spectator
+    // if they don't have a seat, then broadcast updated state to everyone.
+    function attachSocketToLobby(lobby) {
+      socket.join(sessionIdOf(lobby));
+      if (!lobby.hasSeat(user.id)) {
+        lobby.addSpectator(socket.id, user);
+        // Broadcast so existing players see the new spectator in their list
+        nsp.to(sessionIdOf(lobby)).emit("lobby:state", lobby.publicState());
+      } else {
+        // Seated user — only need to send their own copy
+        socket.emit("lobby:state", lobby.publicState());
+      }
+    }
+    function sessionIdOf(lobby) { return lobby.sessionId; }
+
     socket.on("lobby:join", ({ sessionId } = {}) => {
       if (!sessionId) return;
 
@@ -157,14 +172,12 @@ module.exports = function lobbySocket(nsp) {
           }
           const s = rows[0];
           lobby = GameStore.createLobby(s.id, s.group_id, s.variant, s.created_by, s.short_code, s.is_public, s.wager_base || 0, s.wager_per_set || 0);
-          socket.join(sessionId);
-          socket.emit("lobby:state", lobby.publicState());
+          attachSocketToLobby(lobby);
         }).catch(() => socket.emit("lobby:error", { message: "Failed to load lobby." }));
         return;
       }
 
-      socket.join(sessionId);
-      socket.emit("lobby:state", lobby.publicState());
+      attachSocketToLobby(lobby);
     });
 
     // ── lobby:take_seat ─────────────────────────────────────────────────────
@@ -177,6 +190,8 @@ module.exports = function lobbySocket(nsp) {
       const result = lobby.takeSeat(seatIndex, user);
       if (result.error) return socket.emit("lobby:error", { message: result.error });
 
+      // Promoted from spectator — drop spectator entry for this socket
+      lobby.removeSpectator(socket.id);
       nsp.to(sessionId).emit("lobby:state", lobby.publicState());
     });
 
@@ -185,6 +200,9 @@ module.exports = function lobbySocket(nsp) {
       const lobby = GameStore.getLobby(sessionId);
       if (!lobby) return;
       lobby.leaveSeat(user.id);
+      // They're still in the socket room — re-register as a spectator so the
+      // public list and counts stay accurate.
+      lobby.addSpectator(socket.id, user);
       nsp.to(sessionId).emit("lobby:state", lobby.publicState());
     });
 
@@ -215,11 +233,14 @@ module.exports = function lobbySocket(nsp) {
       if (!sessionId || typeof text !== "string") return;
       const trimmed = text.trim().slice(0, 200);
       if (!trimmed) return;
+      const lobby = GameStore.getLobby(sessionId);
+      const fromSpectator = !!(lobby && !lobby.hasSeat(user.id));
       nsp.to(sessionId).emit("chat:message", {
         userId:      user.id,
         displayName: user.display_name,
         avatarUrl:   user.avatar_url || null,
         text:        trimmed,
+        fromSpectator,
         ts:          Date.now(),
       });
     });
@@ -323,6 +344,15 @@ module.exports = function lobbySocket(nsp) {
     socket.on("disconnect", () => {
       QueueManager.dequeue(user.id);
       nsp.emit("queue:count", QueueManager.getCounts());
+
+      // Drop this socket from any lobby's spectator list and broadcast
+      // the updated state so remaining viewers see them leave.
+      for (const lobby of GameStore.allLobbies()) {
+        if (lobby.spectators.has(socket.id)) {
+          lobby.removeSpectator(socket.id);
+          nsp.to(lobby.sessionId).emit("lobby:state", lobby.publicState());
+        }
+      }
     });
   });
 };

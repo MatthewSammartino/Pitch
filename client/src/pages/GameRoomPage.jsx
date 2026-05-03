@@ -177,6 +177,8 @@ export default function GameRoomPage() {
   // ── Layout helpers ──────────────────────────────────────────────────────
 
   const mySeat = game?.seats?.find((s) => s.userId === user?.id);
+  const isSpectating = !!game && !mySeat;
+  const spectatorCount = game?.spectatorCount ?? 0;
 
   return (
     <div style={{
@@ -188,6 +190,17 @@ export default function GameRoomPage() {
     }}>
       <Navbar />
       <ScoreBoard game={game} myUserId={user?.id} />
+
+      {/* Spectator banner — shown when connected but not seated */}
+      {isSpectating && (
+        <div style={{
+          background: "rgba(122,154,250,.08)", border: "1px solid #2a3a5a",
+          padding: "8px 20px", color: "#7b9ef0", fontSize: 13, textAlign: "center",
+          fontFamily: "monospace", letterSpacing: 1,
+        }}>
+          👁 SPECTATING {spectatorCount > 1 ? `· ${spectatorCount} watching` : ""}
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (
@@ -309,6 +322,7 @@ export default function GameRoomPage() {
               myHand={myHand}
               reactions={reactions}
               onReact={emitReact}
+              spectatorMode={isSpectating}
             />
           </div>
 
@@ -342,19 +356,39 @@ export default function GameRoomPage() {
             </div>
           )}
 
-          {/* Hand */}
-          <div style={{
-            background: "rgba(255,255,255,.02)",
-            border: "1px solid #1e4a1e",
-            borderRadius: 12,
-            width: "100%", maxWidth: 540,
-          }}>
-            <HandDisplay
-              hand={myHand}
-              validCards={myTurn?.action === "play_card" ? validCards : undefined}
-              onPlayCard={myTurn?.action === "play_card" ? emitPlayCard : undefined}
-            />
-          </div>
+          {/* Hand — hidden for spectators (they have no hand) */}
+          {!isSpectating && (
+            <div style={{
+              background: "rgba(255,255,255,.02)",
+              border: "1px solid #1e4a1e",
+              borderRadius: 12,
+              width: "100%", maxWidth: 540,
+            }}>
+              <HandDisplay
+                hand={myHand}
+                validCards={myTurn?.action === "play_card" ? validCards : undefined}
+                onPlayCard={myTurn?.action === "play_card" ? emitPlayCard : undefined}
+              />
+            </div>
+          )}
+
+          {/* Spectator hand placeholder — informational */}
+          {isSpectating && (
+            <div style={{
+              background: "rgba(122,154,250,.04)",
+              border: "1px dashed #2a3a5a",
+              borderRadius: 12,
+              padding: "20px 16px",
+              width: "100%", maxWidth: 540,
+              textAlign: "center",
+              color: "#5a6a8a",
+              fontSize: 12,
+              fontFamily: "monospace",
+              letterSpacing: 1,
+            }}>
+              👁 SPECTATING — HANDS HIDDEN
+            </div>
+          )}
 
           {/* Bid history */}
           {game.status === "BIDDING" && Object.keys(game.bids || {}).length > 0 && (

@@ -54,6 +54,42 @@ class GameStateMachine {
 
     // Bidder must lead trump on the first trick of each round
     this.mustLeadTrump = false;
+
+    // Spectators — transient, socket-level state. Game logic doesn't read this;
+    // it's here so getPublicState can include it without a separate broadcast wrapper.
+    this.spectators = new Map(); // socketId -> { userId, displayName, avatarUrl, isGuest }
+  }
+
+  // ── Spectator helpers ───────────────────────────────────────────────────
+  hasSeat(userId) {
+    return this.seats.some((s) => s && s.userId === userId);
+  }
+  addSpectator(socketId, user) {
+    this.spectators.set(socketId, {
+      userId:      user.id,
+      displayName: user.display_name,
+      avatarUrl:   user.avatar_url || null,
+      isGuest:     !!user.is_guest,
+    });
+  }
+  removeSpectator(socketId) {
+    this.spectators.delete(socketId);
+  }
+  isSpectator(userId) {
+    for (const s of this.spectators.values()) {
+      if (s.userId === userId) return true;
+    }
+    return false;
+  }
+  _dedupedSpectators() {
+    const seen = new Set();
+    const out = [];
+    for (const s of this.spectators.values()) {
+      if (seen.has(s.userId)) continue;
+      seen.add(s.userId);
+      out.push(s);
+    }
+    return out;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -98,6 +134,9 @@ class GameStateMachine {
       lastRoundSummary:    this.lastRoundSummary,
       // Live scoring progress (null except during TRICK_PLAYING)
       liveRoundScoring: this.status === "TRICK_PLAYING" ? this.getLiveRoundScoring() : null,
+      // Spectators
+      spectators:      this._dedupedSpectators(),
+      spectatorCount:  this._dedupedSpectators().length,
     };
   }
 
