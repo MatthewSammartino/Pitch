@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import EnvBanner from "./components/layout/EnvBanner";
 import LandingPage    from "./pages/LandingPage";
 import DashboardPage  from "./pages/DashboardPage";
 import GroupPage      from "./pages/GroupPage";
@@ -16,7 +17,9 @@ import TutorialPage     from "./pages/TutorialPage";
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <EnvBanner />
+      <Routes>
       {/* Public */}
       <Route path="/"            element={<LandingPage />} />
       <Route path="/join/:token" element={<JoinGroupPage />} />
@@ -40,5 +43,6 @@ export default function App() {
       {/* 404 fallback */}
       <Route path="*" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
     </Routes>
+    </>
   );
 }
