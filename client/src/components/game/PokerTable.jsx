@@ -132,12 +132,16 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact })
 
   return (
     // Outer scaling container
+    // overflow:hidden is only needed on mobile (where the inner div is
+    // scaled and would otherwise extend past the container). On desktop
+    // scale=1 and the seat avatars at left:18 / left:522 overflow the
+    // 540px box by ~10px on each side — clipping them off.
     <div
       ref={containerRef}
       style={{
         width: isMobile ? "100%" : TABLE_W,
         height: isMobile ? scaledHeight : TABLE_H,
-        overflow: "hidden",
+        overflow: isMobile ? "hidden" : "visible",
         flexShrink: 0,
       }}
     >
