@@ -65,6 +65,9 @@ export default function ChatPanel({ messages, onSend, myUserId }) {
         {messages.slice(-MAX_MESSAGES).map((msg, i) => {
           const isMe = msg.userId === myUserId;
           const isSystem = msg.userId === "system";
+          const isSpec = !!msg.fromSpectator;
+          // Spectator name color: blue, italic. Players: gold (or green if me).
+          const nameColor = isSpec ? "#7b9ef0" : (isMe ? "#4fc3a1" : "#f0c040");
           return (
             <div key={i} style={{ fontSize: 12, lineHeight: 1.4 }}>
               {isSystem ? (
@@ -72,12 +75,18 @@ export default function ChatPanel({ messages, onSend, myUserId }) {
               ) : (
                 <>
                   <span style={{
-                    color: isMe ? "#4fc3a1" : "#f0c040",
+                    color: nameColor,
                     fontWeight: 600,
                     marginRight: 6,
                     fontFamily: "Georgia,serif",
+                    fontStyle: isSpec ? "italic" : "normal",
                   }}>
                     {isMe ? "You" : msg.displayName}
+                    {isSpec && (
+                      <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 400, marginLeft: 4 }}>
+                        (spectating)
+                      </span>
+                    )}
                   </span>
                   <span style={{ color: "#c8c0b0" }}>{msg.text}</span>
                 </>

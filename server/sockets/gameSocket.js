@@ -286,6 +286,15 @@ module.exports = function gameSocket(nsp) {
       socket.join(sessionId);
       trackSocket(sessionId, user.id, socket);
 
+      const isSeated = game.hasSeat(user.id);
+      if (!isSeated) {
+        // Spectator: send public state only, no private hand. Broadcast so
+        // existing players see them in the spectator list.
+        game.addSpectator(socket.id, user);
+        nsp.to(sessionId).emit("game:state", game.getPublicState());
+        return;
+      }
+
       socket.emit("game:state", game.getPublicState());
       socket.emit("game:your_hand", game.getPrivateState(user.id));
 
@@ -297,7 +306,10 @@ module.exports = function gameSocket(nsp) {
       const game = GameStore.getGame(sessionId);
       if (!game) return;
       socket.emit("game:state", game.getPublicState());
-      socket.emit("game:your_hand", game.getPrivateState(user.id));
+      // Hand is only sent to seated players. Spectators never receive hands.
+      if (game.hasSeat(user.id)) {
+        socket.emit("game:your_hand", game.getPrivateState(user.id));
+      }
     });
 
     socket.on("game:bid", ({ sessionId, amount } = {}) => {
@@ -360,11 +372,14 @@ module.exports = function gameSocket(nsp) {
       if (!sessionId || typeof text !== "string") return;
       const trimmed = text.trim().slice(0, 200);
       if (!trimmed) return;
+      const game = GameStore.getGame(sessionId);
+      const fromSpectator = !!(game && !game.hasSeat(user.id));
       nsp.to(sessionId).emit("chat:message", {
         userId:      user.id,
         displayName: user.display_name,
         avatarUrl:   user.avatar_url || null,
         text:        trimmed,
+        fromSpectator,
         ts:          Date.now(),
       });
     });
@@ -425,6 +440,13 @@ module.exports = function gameSocket(nsp) {
         if (userMap.get(user.id) === socket) {
           userMap.delete(user.id);
           if (userMap.size === 0) sessionSockets.delete(sid);
+        }
+      }
+      // Drop from any game's spectator list and broadcast updated state
+      for (const game of GameStore.allGames()) {
+        if (game.spectators.has(socket.id)) {
+          game.removeSpectator(socket.id);
+          nsp.to(game.sessionId).emit("game:state", game.getPublicState());
         }
       }
     });

@@ -19,6 +19,40 @@ class LobbyState {
     this.status     = "waiting";
     this.seats      = Array(variant).fill(null);
     this.teamNames  = variant === 6 ? ["A", "B", "C"] : ["A", "B"];
+    this.spectators = new Map(); // socketId -> { userId, displayName, avatarUrl, isGuest }
+  }
+
+  // ── Spectator helpers ───────────────────────────────────────────────────
+  hasSeat(userId) {
+    return this.seats.some((s) => s && s.userId === userId);
+  }
+  addSpectator(socketId, user) {
+    this.spectators.set(socketId, {
+      userId:      user.id,
+      displayName: user.display_name,
+      avatarUrl:   user.avatar_url || null,
+      isGuest:     !!user.is_guest,
+    });
+  }
+  removeSpectator(socketId) {
+    this.spectators.delete(socketId);
+  }
+  isSpectator(userId) {
+    for (const s of this.spectators.values()) {
+      if (s.userId === userId) return true;
+    }
+    return false;
+  }
+  // Dedupe by userId — same person on multiple tabs counts once in the public list
+  _dedupedSpectators() {
+    const seen = new Set();
+    const out = [];
+    for (const s of this.spectators.values()) {
+      if (seen.has(s.userId)) continue;
+      seen.add(s.userId);
+      out.push(s);
+    }
+    return out;
   }
 
   setTeamNames(names) {
@@ -75,6 +109,7 @@ class LobbyState {
   }
 
   publicState() {
+    const specs = this._dedupedSpectators();
     return {
       sessionId:   this.sessionId,
       variant:     this.variant,
@@ -86,6 +121,8 @@ class LobbyState {
       seats:       this.seats,
       filledCount: this.filledCount(),
       teamNames:   this.teamNames,
+      spectators:      specs,
+      spectatorCount:  specs.length,
     };
   }
 }
@@ -123,4 +160,8 @@ module.exports = {
   getGame(sessionId)    { return games.get(sessionId) || null; },
   deleteGame(sessionId) { games.delete(sessionId); },
   hasGame(sessionId)    { return games.has(sessionId); },
+
+  // Spectator-aware iteration helpers (used by socket disconnect cleanup)
+  allLobbies() { return lobbies.values(); },
+  allGames()   { return games.values(); },
 };
