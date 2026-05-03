@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.pnp.*
+
+# Build output
+dist/
+server/dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+*.tsbuildinfo
