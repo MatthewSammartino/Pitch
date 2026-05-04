@@ -216,7 +216,7 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
               completedTrick={game.completedTrick}
               seats={game.seats}
               trumpSuit={game.trumpSuit}
-              mySeatIndex={mySeat.seatIndex}
+              mySeatIndex={mySeat?.seatIndex ?? 0}
             />
           </div>
         </div>
