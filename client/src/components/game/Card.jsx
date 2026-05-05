@@ -13,9 +13,10 @@ const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 const SUIT_COLORS = { h: "#c11414", d: "#c11414", c: "#1a1a1a", s: "#1a1a1a" };
 
 const SIZES = {
-  lg: { w: 64, h: 90, corner: 8, pipFont: 14, suitFont: 13, centerFont: 36 },
-  md: { w: 52, h: 72, corner: 6, pipFont: 12, suitFont: 11, centerFont: 28 },
-  sm: { w: 36, h: 50, corner: 4, pipFont: 9,  suitFont: 8,  centerFont: 18 },
+  xl: { w: 84, h: 118, corner: 10, pipFont: 18, suitFont: 17, centerFont: 48 },
+  lg: { w: 64, h: 90,  corner: 8,  pipFont: 14, suitFont: 13, centerFont: 36 },
+  md: { w: 52, h: 72,  corner: 6,  pipFont: 12, suitFont: 11, centerFont: 28 },
+  sm: { w: 36, h: 50,  corner: 4,  pipFont: 9,  suitFont: 8,  centerFont: 18 },
 };
 
 function parseCard(cardId) {
