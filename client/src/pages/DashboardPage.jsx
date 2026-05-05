@@ -91,6 +91,7 @@ export default function DashboardPage() {
   const [isPublic, setIsPublic]     = useState(false);
   const [wagerBase, setWagerBase]   = useState(0);
   const [wagerPerSet, setWagerPerSet] = useState(0);
+  const [compactView, setCompactView] = useState(false);
   const [chipBalance, setChipBalance] = useState(null);
   const [creating, setCreating]     = useState(false);
 
@@ -164,7 +165,11 @@ export default function DashboardPage() {
 
   function createLobby() {
     setCreating(true);
-    api.post("/api/sessions", { variant, is_public: isPublic, wager_base: wagerBase, wager_per_set: wagerPerSet })
+    api.post("/api/sessions", {
+      variant, is_public: isPublic,
+      wager_base: wagerBase, wager_per_set: wagerPerSet,
+      compact_view: compactView,
+    })
       .then((s) => navigate(`/lobby/${s.id}`))
       .catch(() => setCreating(false));
   }
@@ -381,6 +386,32 @@ export default function DashboardPage() {
                     </div>
                     <span style={{ color: isPublic ? "#f0c040" : "#5a7a5a", fontSize: 12, fontFamily: "Georgia,serif" }}>
                       {isPublic ? "Public — visible in Open Lobbies" : "Private — invite only"}
+                    </span>
+                  </button>
+                  {/* Compact view toggle — host-locked, applies to everyone in the game */}
+                  <button
+                    onClick={() => setCompactView((v) => !v)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: "transparent", border: "none", cursor: "pointer",
+                      padding: 0, marginBottom: 12,
+                    }}
+                  >
+                    <div style={{
+                      width: 32, height: 18, borderRadius: 9,
+                      background: compactView ? "rgba(240,192,64,.3)" : "rgba(255,255,255,.08)",
+                      border: `1px solid ${compactView ? "#f0c040" : "#2a5c2a"}`,
+                      position: "relative", transition: "all .15s",
+                    }}>
+                      <div style={{
+                        width: 12, height: 12, borderRadius: "50%",
+                        background: compactView ? "#f0c040" : "#3a5a3a",
+                        position: "absolute", top: 2,
+                        left: compactView ? 16 : 2, transition: "left .15s",
+                      }} />
+                    </div>
+                    <span style={{ color: compactView ? "#f0c040" : "#5a7a5a", fontSize: 12, fontFamily: "Georgia,serif" }}>
+                      {compactView ? "Compact view — extras hidden under the table" : "Standard view — show live scoring + bid history"}
                     </span>
                   </button>
                   {!user?.is_guest && (

@@ -171,7 +171,7 @@ module.exports = function lobbySocket(nsp) {
             });
           }
           const s = rows[0];
-          lobby = GameStore.createLobby(s.id, s.group_id, s.variant, s.created_by, s.short_code, s.is_public, s.wager_base || 0, s.wager_per_set || 0);
+          lobby = GameStore.createLobby(s.id, s.group_id, s.variant, s.created_by, s.short_code, s.is_public, s.wager_base || 0, s.wager_per_set || 0, !!s.compact_view);
           attachSocketToLobby(lobby);
         }).catch(() => socket.emit("lobby:error", { message: "Failed to load lobby." }));
         return;
@@ -331,7 +331,7 @@ module.exports = function lobbySocket(nsp) {
           ));
         }
 
-        GameStore.createGame(sessionId, lobby.variant, gameSeats, lobby.teamNames);
+        GameStore.createGame(sessionId, lobby.variant, gameSeats, lobby.teamNames, lobby.compactView);
 
         nsp.to(sessionId).emit("lobby:started", { sessionId });
       } catch (err) {

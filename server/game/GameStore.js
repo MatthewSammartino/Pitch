@@ -7,7 +7,7 @@ const GameStateMachine = require("./GameStateMachine");
 // ── Lobby state ─────────────────────────────────────────────────────────────
 
 class LobbyState {
-  constructor(sessionId, groupId, variant, createdBy, shortCode, isPublic = false, wagerBase = 0, wagerPerSet = 0) {
+  constructor(sessionId, groupId, variant, createdBy, shortCode, isPublic = false, wagerBase = 0, wagerPerSet = 0, compactView = false) {
     this.sessionId  = sessionId;
     this.groupId    = groupId;
     this.variant    = variant;
@@ -16,6 +16,7 @@ class LobbyState {
     this.isPublic   = isPublic;
     this.wagerBase  = wagerBase;
     this.wagerPerSet = wagerPerSet;
+    this.compactView = compactView;
     this.status     = "waiting";
     this.seats      = Array(variant).fill(null);
     this.teamNames  = variant === 6 ? ["A", "B", "C"] : ["A", "B"];
@@ -118,6 +119,7 @@ class LobbyState {
       shortCode:   this.shortCode,
       wagerBase:   this.wagerBase,
       wagerPerSet: this.wagerPerSet,
+      compactView: this.compactView,
       seats:       this.seats,
       filledCount: this.filledCount(),
       teamNames:   this.teamNames,
@@ -136,8 +138,8 @@ const games   = new Map(); // sessionId → GameStateMachine
 
 module.exports = {
   // Lobby
-  createLobby(sessionId, groupId, variant, createdBy, shortCode, isPublic = false, wagerBase = 0, wagerPerSet = 0) {
-    const lobby = new LobbyState(sessionId, groupId, variant, createdBy, shortCode, isPublic, wagerBase, wagerPerSet);
+  createLobby(sessionId, groupId, variant, createdBy, shortCode, isPublic = false, wagerBase = 0, wagerPerSet = 0, compactView = false) {
+    const lobby = new LobbyState(sessionId, groupId, variant, createdBy, shortCode, isPublic, wagerBase, wagerPerSet, compactView);
     lobbies.set(sessionId, lobby);
     return lobby;
   },
@@ -152,8 +154,8 @@ module.exports = {
   },
 
   // Game
-  createGame(sessionId, variant, seats, teamNames) {
-    const game = new GameStateMachine(sessionId, variant, seats, teamNames);
+  createGame(sessionId, variant, seats, teamNames, compactView = false) {
+    const game = new GameStateMachine(sessionId, variant, seats, teamNames, compactView);
     games.set(sessionId, game);
     return game;
   },

@@ -11,13 +11,14 @@ class GameStateMachine {
    * @param {number} variant  - 4 or 6
    * @param {Array}  seats    - [{ seatIndex, userId, displayName, avatarUrl }]
    */
-  constructor(sessionId, variant, seats, teamNames) {
+  constructor(sessionId, variant, seats, teamNames, compactView = false) {
     this.sessionId    = sessionId;
     this.variant      = variant;
     this.numTeams     = variant === 6 ? 3 : 2;
     this.cardsPerHand = 6; // 6 cards each regardless of variant (9 exceeds 52-card deck for 6p)
     this.targetScore  = TARGET_SCORE;
     this.teamNames    = teamNames ?? (variant === 6 ? ["A", "B", "C"] : ["A", "B"]);
+    this.compactView  = compactView;
     this.status       = "BIDDING";
 
     // Assign teams: seatIndex % numTeams (4p: 0&2=T0, 1&3=T1; 6p: 0&3=T0, 1&4=T1, 2&5=T2)
@@ -137,6 +138,8 @@ class GameStateMachine {
       // Spectators
       spectators:      this._dedupedSpectators(),
       spectatorCount:  this._dedupedSpectators().length,
+      // Compact view (host-locked at lobby creation)
+      compactView:     this.compactView,
     };
   }
 

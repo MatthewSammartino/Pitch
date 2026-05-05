@@ -24,13 +24,14 @@ async function generateUniqueCode() {
 }
 
 // POST /api/sessions — create a new game session (lobby)
-// Body: { variant, groupSlug?, is_public?, wager_base?, wager_per_set? }
+// Body: { variant, groupSlug?, is_public?, wager_base?, wager_per_set?, compact_view? }
 // Any authenticated user can create a game; group association is optional.
 router.post("/", async (req, res) => {
-  const { variant, groupSlug, is_public = false, wager_base = 0, wager_per_set = 0 } = req.body;
+  const { variant, groupSlug, is_public = false, wager_base = 0, wager_per_set = 0, compact_view = false } = req.body;
   const v  = Number(variant);
   const wb = Math.max(0, parseInt(wager_base)  || 0);
   const ws = Math.max(0, parseInt(wager_per_set) || 0);
+  const cv = !!compact_view;
   if (v !== 4 && v !== 6) return res.status(400).json({ error: "variant must be 4 or 6" });
 
   // Guest users: in-memory only (no DB record — avoids FK constraint on created_by)
@@ -39,8 +40,8 @@ router.post("/", async (req, res) => {
     if (wb > 0) return res.status(403).json({ error: "Guests cannot create wagered games." });
     const id        = randomUUID();
     const shortCode = randomCode();
-    GameStore.createLobby(id, null, v, req.user.id, shortCode, false, 0, 0);
-    return res.status(201).json({ id, group_id: null, variant: v, status: "waiting", created_by: req.user.id, short_code: shortCode });
+    GameStore.createLobby(id, null, v, req.user.id, shortCode, false, 0, 0, cv);
+    return res.status(201).json({ id, group_id: null, variant: v, status: "waiting", created_by: req.user.id, short_code: shortCode, compact_view: cv });
   }
 
   try {
@@ -57,13 +58,13 @@ router.post("/", async (req, res) => {
 
     const shortCode = await generateUniqueCode();
     const { rows } = await pool.query(
-      `INSERT INTO game_sessions (group_id, variant, status, created_by, short_code, is_public, wager_base, wager_per_set)
-       VALUES ($1, $2, 'waiting', $3, $4, $5, $6, $7) RETURNING *`,
-      [groupId, v, req.user.id, shortCode, !!is_public, wb, ws]
+      `INSERT INTO game_sessions (group_id, variant, status, created_by, short_code, is_public, wager_base, wager_per_set, compact_view)
+       VALUES ($1, $2, 'waiting', $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [groupId, v, req.user.id, shortCode, !!is_public, wb, ws, cv]
     );
     const session = rows[0];
 
-    GameStore.createLobby(session.id, groupId, v, req.user.id, shortCode, !!is_public, wb, ws);
+    GameStore.createLobby(session.id, groupId, v, req.user.id, shortCode, !!is_public, wb, ws, cv);
 
     res.status(201).json({ ...session, groupSlug: groupSlugOut });
   } catch (err) {

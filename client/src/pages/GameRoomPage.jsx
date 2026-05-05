@@ -13,6 +13,7 @@ import RoundHistoryPanel from "../components/game/RoundHistoryPanel";
 import LiveRoundPanel from "../components/game/LiveRoundPanel";
 import ChatPanel from "../components/game/ChatPanel";
 import PokerTable from "../components/game/PokerTable";
+import WinningBidBanner from "../components/game/WinningBidBanner";
 
 
 export default function GameRoomPage() {
@@ -86,6 +87,10 @@ export default function GameRoomPage() {
     socket.on("game:round_over", (summary) => {
       setRoundSummary(summary);
       setRoundHistory((prev) => [...prev, summary]);
+      // Clear the lingering trick from local state so the table goes empty
+      // before the round summary modal appears. The next game:state push will
+      // bring fresh data when the new round deals.
+      setGame((prev) => prev ? { ...prev, currentTrick: [], completedTrick: null } : prev);
     });
 
     socket.on("game:game_over", (result) => {
@@ -179,6 +184,7 @@ export default function GameRoomPage() {
   const mySeat = game?.seats?.find((s) => s.userId === user?.id);
   const isSpectating = !!game && !mySeat;
   const spectatorCount = game?.spectatorCount ?? 0;
+  const compactView = !!game?.compactView;
 
   return (
     <div style={{
@@ -201,6 +207,9 @@ export default function GameRoomPage() {
           👁 SPECTATING {spectatorCount > 1 ? `· ${spectatorCount} watching` : ""}
         </div>
       )}
+
+      {/* Winning bid banner — shown after bidding ends */}
+      {game && <WinningBidBanner game={game} />}
 
       {/* Error banner */}
       {error && (
@@ -326,8 +335,8 @@ export default function GameRoomPage() {
             />
           </div>
 
-          {/* Live round scoring */}
-          {game.liveRoundScoring && (
+          {/* Live round scoring — hidden in compact mode */}
+          {!compactView && game.liveRoundScoring && (
             <div style={{ marginBottom: 8, width: "100%", maxWidth: 540 }}>
               <LiveRoundPanel
                 liveRoundScoring={game.liveRoundScoring}
@@ -390,8 +399,8 @@ export default function GameRoomPage() {
             </div>
           )}
 
-          {/* Bid history */}
-          {game.status === "BIDDING" && Object.keys(game.bids || {}).length > 0 && (
+          {/* Bid history — hidden in compact mode */}
+          {!compactView && game.status === "BIDDING" && Object.keys(game.bids || {}).length > 0 && (
             <div style={{ textAlign: "center", color: "#3a5a3a", fontSize: 12, marginTop: 8, width: "100%", maxWidth: 540 }}>
               {game.seats.filter((s) => game.bids[s.seatIndex] !== undefined).map((s) => (
                 <span key={s.seatIndex} style={{ marginRight: 12 }}>

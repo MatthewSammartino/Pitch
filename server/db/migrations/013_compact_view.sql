@@ -1,0 +1,2 @@
+ALTER TABLE game_sessions
+  ADD COLUMN IF NOT EXISTS compact_view BOOLEAN NOT NULL DEFAULT false;

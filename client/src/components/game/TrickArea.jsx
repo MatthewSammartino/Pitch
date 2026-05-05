@@ -1,32 +1,17 @@
-const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
-const SUIT_COLORS  = { s: "#d8d8d8", h: "#e05c5c", d: "#5b9cf6", c: "#5eca7a" };
+import Card from "./Card";
 
-function parseCard(cardId) {
-  if (!cardId) return { rank: "", suit: "s" };
-  if (cardId.length === 3) return { rank: cardId.slice(0, 2), suit: cardId[2] };
-  return { rank: cardId[0], suit: cardId[1] };
-}
+const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
+// Trump suit indicator at center of the trick area. Red for ♥/♦, light grey
+// for ♠/♣ (pure black would disappear into the dark felt).
+const TRUMP_INDICATOR_COLOR = { h: "#e05c5c", d: "#e05c5c", c: "#e8dfc8", s: "#e8dfc8" };
 
 function TrickCard({ cardId, label }) {
-  if (!cardId) {
-    return <div style={{ width: 44, height: 62 }} />;
-  }
-  const { rank, suit } = parseCard(cardId);
-  const color = SUIT_COLORS[suit];
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{
-        width: 44, height: 62, borderRadius: 6,
-        border: `1px solid ${color}`,
-        background: "rgba(255,255,255,.07)",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        margin: "0 auto",
-      }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color, lineHeight: 1 }}>{rank}</div>
-        <div style={{ fontSize: 16, color, lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</div>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <Card cardId={cardId} size="md" />
       </div>
-      <div style={{ fontSize: 10, color: "#5a7a5a", marginTop: 3 }}>{label}</div>
+      <div style={{ fontSize: 10, color: "#5a7a5a", marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -47,7 +32,7 @@ export default function TrickArea({ currentTrick, completedTrick, seats, trumpSu
   const winnerName = isCompleted && completedTrick
     ? (seatMap[completedTrick.winnerSeat]?.displayName || "?")
     : null;
-  const trumpColor = trumpSuit ? SUIT_COLORS[trumpSuit] : "#3a5a3a";
+  const trumpColor = trumpSuit ? TRUMP_INDICATOR_COLOR[trumpSuit] : "#3a5a3a";
 
   // ── 6-player layout ───────────────────────────────────────────────────────
   if (v === 6) {
