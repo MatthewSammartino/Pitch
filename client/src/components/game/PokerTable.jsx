@@ -6,24 +6,28 @@ import useIsMobile from "../../hooks/useIsMobile";
 const TEAM_COLORS = ["#4fc3a1", "#f0c040", "#e07a5f"];
 const ALLOWED_EMOJIS = ["👍", "👎", "😂", "😮", "😤", "🔥", "💀", "🎉"];
 
-const TABLE_W = 540;
+// Wider table — fills more of the screen on desktop. Seat coords below
+// scaled horizontally; vertical positions unchanged so player tiles stay
+// the same height. The mobile auto-scale path (containerRef + transform)
+// continues to work because it scales whatever TABLE_W is set to.
+const TABLE_W = 880;
 const TABLE_H = 420;
 
-// Seat positions (left, top) relative to 540×420 wrapper
-// All seats use transform: translate(-50%, -50%) for centering
+// Seat positions (left, top) relative to TABLE_W × TABLE_H wrapper.
+// All seats use transform: translate(-50%, -50%) for centering.
 const SEAT_POS_4 = {
-  south: { left: 270, top: 390 },
-  north: { left: 270, top: 30  },
-  west:  { left: 18,  top: 210 },
-  east:  { left: 522, top: 210 },
+  south: { left: 440, top: 390 },
+  north: { left: 440, top: 30  },
+  west:  { left: 30,  top: 210 },
+  east:  { left: 850, top: 210 },
 };
 const SEAT_POS_6 = {
-  south: { left: 270, top: 390 },
-  north: { left: 270, top: 30  },
-  west:  { left: 18,  top: 285 },
-  east:  { left: 522, top: 285 },
-  nw:    { left: 68,  top: 95  },
-  ne:    { left: 472, top: 95  },
+  south: { left: 440, top: 390 },
+  north: { left: 440, top: 30  },
+  west:  { left: 30,  top: 285 },
+  east:  { left: 850, top: 285 },
+  nw:    { left: 110, top: 95  },
+  ne:    { left: 770, top: 95  },
 };
 
 function isActive(seat, game) {
@@ -176,12 +180,12 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
 
         {/* ── Center area (no felt) ─────────────────────────────────────────────
              The felt oval was removed. This div remains as the positioning
-             anchor for the TrickArea so seat coords stay in the same frame
-             and nothing else has to change. */}
+             anchor for the TrickArea so its center sits at the middle of
+             the wider table. */}
         <div style={{
           position: "absolute",
           left: 0, top: 70,
-          width: 540, height: 280,
+          width: TABLE_W, height: 280,
           pointerEvents: "none",
         }}>
 
