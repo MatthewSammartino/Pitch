@@ -9,9 +9,9 @@ function TrickCard({ cardId, label }) {
   return (
     <div style={{ textAlign: "center" }}>
       <div style={{ display: "flex", justifyContent: "center" }}>
-        <Card cardId={cardId} size="lg" />
+        <Card cardId={cardId} size="md" />
       </div>
-      <div style={{ fontSize: 11, color: "#5a7a5a", marginTop: 5 }}>{label}</div>
+      <div style={{ fontSize: 10, color: "#5a7a5a", marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -48,11 +48,11 @@ export default function TrickArea({ currentTrick, completedTrick, seats, trumpSu
         gridTemplateAreas: `"nw north ne" "west center east" ". south ."`,
         gridTemplateColumns: "1fr auto 1fr",
         gridTemplateRows: "auto auto auto",
-        gap: "12px 14px",
+        gap: "8px 10px",
         justifyItems: "center",
         alignItems: "center",
-        padding: "16px 12px",
-        minHeight: 280,
+        padding: "12px 10px",
+        minHeight: 220,
         opacity: isCompleted ? 0.7 : 1,
         transition: "opacity .3s",
       }}>
@@ -103,11 +103,11 @@ export default function TrickArea({ currentTrick, completedTrick, seats, trumpSu
       gridTemplateAreas: `". north ." "west center east" ". south ."`,
       gridTemplateColumns: "1fr auto 1fr",
       gridTemplateRows: "auto auto auto",
-      gap: "12px 20px",
+      gap: "8px 16px",
       justifyItems: "center",
       alignItems: "center",
-      padding: "20px 14px",
-      minHeight: 260,
+      padding: "16px 12px",
+      minHeight: 200,
       opacity: isCompleted ? 0.7 : 1,
       transition: "opacity .3s",
     }}>

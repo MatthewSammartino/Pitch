@@ -293,31 +293,23 @@ export default function GameRoomPage() {
           display: "flex",
           flexDirection: isMobile ? "column" : "row",
           gap: 0,
+          maxWidth: isMobile ? "100%" : 1040,
+          margin: "0 auto",
           width: "100%",
           padding: isMobile ? "4px 0" : "8px 0",
         }}>
 
-          {/* Left: round history + live scoring + chat — hidden on mobile, shown below instead */}
+          {/* Left: round history + chat — hidden on mobile, shown below instead */}
           {!isMobile && (
-            <div style={{
-              display: "flex", flexDirection: "column", gap: 8,
-              flexShrink: 0, width: 220, padding: "0 8px",
-            }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
               <RoundHistoryPanel rounds={roundHistory} teamNames={game.teamNames} />
-              {/* Live round scoring sits in the sidebar so it doesn't crowd the table.
-                  Hidden in compact mode (host setting). */}
-              {!compactView && game.liveRoundScoring && (
-                <LiveRoundPanel
-                  liveRoundScoring={game.liveRoundScoring}
-                  teamNames={game.teamNames}
-                  trumpSuit={game.trumpSuit}
+              <div style={{ width: 200 }}>
+                <ChatPanel
+                  messages={chatMessages}
+                  onSend={sendChat}
+                  myUserId={user?.id}
                 />
-              )}
-              <ChatPanel
-                messages={chatMessages}
-                onSend={sendChat}
-                myUserId={user?.id}
-              />
+              </div>
             </div>
           )}
 
@@ -327,12 +319,12 @@ export default function GameRoomPage() {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            padding: isMobile ? "4px 4px" : "8px 16px",
+            padding: isMobile ? "4px 4px" : "8px 12px",
             minWidth: 0,
           }}>
 
-          {/* Player seats + trick area */}
-          <div style={{ marginBottom: isMobile ? 6 : 12, width: "100%" }}>
+          {/* Poker table */}
+          <div style={{ marginBottom: isMobile ? 6 : 10, width: isMobile ? "100%" : "auto" }}>
             <PokerTable
               game={game}
               mySeat={mySeat}
@@ -343,8 +335,8 @@ export default function GameRoomPage() {
             />
           </div>
 
-          {/* Mobile-only: live round scoring inline (sidebar isn't visible) */}
-          {isMobile && !compactView && game.liveRoundScoring && (
+          {/* Live round scoring — hidden in compact mode */}
+          {!compactView && game.liveRoundScoring && (
             <div style={{ marginBottom: 8, width: "100%", maxWidth: 540 }}>
               <LiveRoundPanel
                 liveRoundScoring={game.liveRoundScoring}

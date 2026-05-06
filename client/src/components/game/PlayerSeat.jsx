@@ -79,6 +79,9 @@ export default function PlayerSeat({
     ? (bidVal === "pass" ? "Pass" : `Bid ${bidVal}`)
     : null;
 
+  // ── Card backs ───────────────────────────────────────────────────────────────
+  const backCount = Math.min(cardCount || 0, 9);
+
   return (
     <div style={{
       position: "relative",
@@ -153,6 +156,27 @@ export default function PlayerSeat({
           fontFamily: "Georgia,serif",
         }}>
           {bidLabel}
+        </div>
+      )}
+
+      {/* Card backs (opponent only) */}
+      {!isMe && backCount > 0 && (
+        <div style={{
+          display: "flex",
+          gap: 2,
+          justifyContent: "center",
+          flexWrap: "wrap",
+          maxWidth: 72,
+          marginTop: 2,
+        }}>
+          {Array.from({ length: backCount }).map((_, i) => (
+            <div key={i} style={{
+              width: 6, height: 10,
+              borderRadius: 2,
+              background: "linear-gradient(135deg,#1e4a1e,#0d2b0d)",
+              border: "1px solid #2a5c2a",
+            }} />
+          ))}
         </div>
       )}
     </div>

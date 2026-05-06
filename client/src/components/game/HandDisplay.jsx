@@ -35,15 +35,15 @@ export default function HandDisplay({ hand, validCards, onPlayCard }) {
   }
 
   const sorted = sortHand(hand);
-  const size = isMobile ? "lg" : "xl";
+  const size = isMobile ? "md" : "lg";
 
   return (
     <div style={{
       display: "flex",
-      gap: isMobile ? 6 : 10,
+      gap: isMobile ? 5 : 8,
       justifyContent: "center",
       flexWrap: "wrap",
-      padding: isMobile ? "10px 8px" : "20px 14px",
+      padding: isMobile ? "10px 8px" : "16px 12px",
     }}>
       {sorted.map((cardId) => {
         const isValid = !playMode || validSet.has(cardId);
