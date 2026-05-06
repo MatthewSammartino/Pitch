@@ -174,33 +174,16 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
         transform: scale < 1 ? `scale(${scale})` : undefined,
       }}>
 
-        {/* ── Felt oval ─────────────────────────────────────────────────────── */}
+        {/* ── Center area (no felt) ─────────────────────────────────────────────
+             The felt oval was removed. This div remains as the positioning
+             anchor for the TrickArea so seat coords stay in the same frame
+             and nothing else has to change. */}
         <div style={{
           position: "absolute",
           left: 0, top: 70,
           width: 540, height: 280,
-          borderRadius: "50%",
-          background: "radial-gradient(ellipse at 40% 35%, #2d7a2d 0%, #1a5c1a 45%, #0e3d0e 75%, #071a07 100%)",
-          boxShadow: [
-            "0 0 0 8px #5c3d1a",
-            "0 0 0 14px #3d2510",
-            "0 0 0 15px #2a1a08",
-            "0 8px 40px rgba(0,0,0,.75)",
-            "inset 0 2px 8px rgba(255,255,255,.05)",
-          ].join(", "),
+          pointerEvents: "none",
         }}>
-          {/* Felt texture overlay */}
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "50%",
-            backgroundImage: [
-              "repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,.025) 2px, rgba(0,0,0,.025) 4px)",
-              "repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(255,255,255,.01) 2px, rgba(255,255,255,.01) 4px)",
-            ].join(", "),
-            pointerEvents: "none",
-            zIndex: 1,
-          }} />
 
           {/* TrickArea — centered inside oval */}
           <div style={{
