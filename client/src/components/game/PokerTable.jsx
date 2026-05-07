@@ -84,17 +84,34 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);
 
-  // Measure container width and compute scale on mobile
+  // Measure the wrapper's available width and scale the inner TABLE_W×TABLE_H
+  // box to fit. Scales DOWN on narrow viewports and UP on wider ones, so the
+  // play area always uses the full available space. Capped at MAX_SCALE so
+  // the cards don't blow up to billboard size on huge monitors.
+  const MIN_SCALE = 0.4;
+  const MAX_SCALE = 1.6;
   const updateScale = useCallback(() => {
-    if (!isMobile || !containerRef.current) { setScale(1); return; }
+    if (!containerRef.current) return;
     const w = containerRef.current.offsetWidth;
-    setScale(Math.min(1, (w - 8) / TABLE_W));
-  }, [isMobile]);
+    if (w <= 0) return;
+    const target = (w - 8) / TABLE_W;
+    setScale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, target)));
+  }, []);
 
   useEffect(() => {
     updateScale();
+    // ResizeObserver reacts to layout changes too (sidebar toggling, etc.),
+    // not just window resize.
+    let obs;
+    if (containerRef.current && typeof ResizeObserver !== "undefined") {
+      obs = new ResizeObserver(updateScale);
+      obs.observe(containerRef.current);
+    }
     window.addEventListener("resize", updateScale);
-    return () => window.removeEventListener("resize", updateScale);
+    return () => {
+      if (obs) obs.disconnect();
+      window.removeEventListener("resize", updateScale);
+    };
   }, [updateScale]);
 
   // Close picker on outside click
@@ -155,27 +172,31 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
   const scaledHeight = TABLE_H * scale;
 
   return (
-    // Outer scaling container
-    // overflow:hidden is only needed on mobile (where the inner div is
-    // scaled and would otherwise extend past the container). On desktop
-    // scale=1 and the seat avatars at left:18 / left:522 overflow the
-    // 540px box by ~10px on each side — clipping them off.
+    // Outer is always width:100% so we can measure the available width via
+    // containerRef and compute scale. Inner stays at TABLE_W × TABLE_H and
+    // is transform-scaled to fit. Height of outer follows the scaled height
+    // so layout flow is correct.
     <div
       ref={containerRef}
       style={{
-        width: isMobile ? "100%" : TABLE_W,
-        height: isMobile ? scaledHeight : TABLE_H,
-        overflow: isMobile ? "hidden" : "visible",
+        width: "100%",
+        height: scaledHeight,
+        overflow: "visible",
         flexShrink: 0,
+        position: "relative",
       }}
     >
-      {/* Inner: fixed 540×420 layout, scaled down on mobile */}
+      {/* Inner: TABLE_W × TABLE_H layout, transform-scaled to whatever the
+          outer's measured width allows. Centered horizontally so it doesn't
+          hug the left when scale * TABLE_W < outer width. */}
       <div style={{
-        position: "relative",
+        position: "absolute",
+        left: "50%",
+        top: 0,
+        transform: `translateX(-50%) scale(${scale})`,
+        transformOrigin: "top center",
         width: TABLE_W,
         height: TABLE_H,
-        transformOrigin: "top left",
-        transform: scale < 1 ? `scale(${scale})` : undefined,
       }}>
 
         {/* ── Center area (no felt) ─────────────────────────────────────────────
