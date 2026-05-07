@@ -236,6 +236,11 @@ module.exports = function gameSocket(nsp) {
           setTimeout(() => handleRoundEnd(sessionId, g, result), 1500);
         } else if (result.trickComplete) {
           setTimeout(() => {
+            // Clear the completed-trick display before the next leader plays
+            // so the table goes blank for a beat — no confusion about whose
+            // turn it is.
+            g.completedTrick = null;
+            nsp.to(sessionId).emit("game:state", g.getPublicState());
             broadcastTurnNotice(sessionId, g);
             autoBotPlay(sessionId);
           }, 1500);
@@ -355,8 +360,13 @@ module.exports = function gameSocket(nsp) {
         setTimeout(() => handleRoundEnd(sessionId, game, result), 1500);
       } else if (result.trickComplete) {
         sendPrivate(sessionId, user.id, "game:your_hand", game.getPrivateState(user.id));
-        // Delay so players can see the completed trick before it clears
+        // Delay so players can see the completed trick + winner highlight,
+        // THEN clear the trick from state and broadcast — table goes blank
+        // before the next leader plays. Avoids confusion about whose turn
+        // it is while the prior trick still shows on the table.
         setTimeout(() => {
+          game.completedTrick = null;
+          nsp.to(sessionId).emit("game:state", game.getPublicState());
           broadcastTurnNotice(sessionId, game);
           autoBotPlay(sessionId);
         }, 1500);
