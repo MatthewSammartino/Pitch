@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import PlayerSeat from "./PlayerSeat";
 import TrickArea from "./TrickArea";
 import useIsMobile from "../../hooks/useIsMobile";
@@ -6,28 +6,24 @@ import useIsMobile from "../../hooks/useIsMobile";
 const TEAM_COLORS = ["#4fc3a1", "#f0c040", "#e07a5f"];
 const ALLOWED_EMOJIS = ["👍", "👎", "😂", "😮", "😤", "🔥", "💀", "🎉"];
 
-// Wider table — fills more of the screen on desktop. Seat coords below
-// scaled horizontally; vertical positions unchanged so player tiles stay
-// the same height. The mobile auto-scale path (containerRef + transform)
-// continues to work because it scales whatever TABLE_W is set to.
-const TABLE_W = 880;
-const TABLE_H = 420;
-
-// Seat positions (left, top) relative to TABLE_W × TABLE_H wrapper.
-// All seats use transform: translate(-50%, -50%) for centering.
+// Seat positions are PERCENTAGES of the table area, not absolute pixels.
+// This means the table layout stretches to fill any available rectangle —
+// avatars and cards stay at their natural sizes, but their positions spread
+// proportionally with the play area. Each seat uses translate(-50%, -50%)
+// so the percentage refers to the seat's center.
 const SEAT_POS_4 = {
-  south: { left: 440, top: 390 },
-  north: { left: 440, top: 30  },
-  west:  { left: 30,  top: 210 },
-  east:  { left: 850, top: 210 },
+  south: { left: "50%", top: "92%" },
+  north: { left: "50%", top: "8%"  },
+  west:  { left: "5%",  top: "50%" },
+  east:  { left: "95%", top: "50%" },
 };
 const SEAT_POS_6 = {
-  south: { left: 440, top: 390 },
-  north: { left: 440, top: 30  },
-  west:  { left: 30,  top: 285 },
-  east:  { left: 850, top: 285 },
-  nw:    { left: 110, top: 95  },
-  ne:    { left: 770, top: 95  },
+  south: { left: "50%", top: "92%" },
+  north: { left: "50%", top: "8%"  },
+  west:  { left: "5%",  top: "65%" },
+  east:  { left: "95%", top: "65%" },
+  nw:    { left: "13%", top: "22%" },
+  ne:    { left: "87%", top: "22%" },
 };
 
 function isActive(seat, game) {
@@ -38,7 +34,7 @@ function isActive(seat, game) {
   return false;
 }
 
-// Map compass directions to seat objects based on my seat index
+// Map compass directions to seat objects based on my seat index.
 function getPositionedSeats(game, mySeat) {
   if (!game || !mySeat) return {};
   const idx = mySeat.seatIndex;
@@ -61,8 +57,7 @@ function getPositionedSeats(game, mySeat) {
   };
 }
 
-// Spectator layout — no "me", all seats positioned around the felt by seatIndex.
-// Seat 0 takes south, then we walk clockwise: west, (nw), north, (ne), east.
+// Spectator layout — no "me", all seats positioned by seatIndex.
 function getSpectatorPositionedSeats(game) {
   if (!game) return {};
   const find = (i) => game.seats.find((s) => s.seatIndex === i);
@@ -77,46 +72,31 @@ function getSpectatorPositionedSeats(game) {
   };
 }
 
+// Reserved vertical space (px) for everything else on the page so the table
+// height never pushes the hand off-screen. Approximate sum of: navbar +
+// scoreboard + winning-bid banner + bid panel + hand + bid-history line.
+const RESERVED_VERTICAL = 400;
+// Soft minimums so the table doesn't collapse on tiny windows.
+const MIN_HEIGHT = 300;
+const MIN_WIDTH  = 320;
+
 export default function PokerTable({ game, mySeat, myHand, reactions, onReact, spectatorMode = false }) {
   const isMobile = useIsMobile();
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef(null);
-  const containerRef = useRef(null);
-  const [scale, setScale] = useState(1);
+  const [tableHeight, setTableHeight] = useState(MIN_HEIGHT);
 
-  // Scale to fit both the available width AND height so the user never has
-  // to scroll. Width is measured from the wrapper. Height is the viewport
-  // minus space reserved for everything else on the page (navbar, scoreboard,
-  // banners, bid panel, hand, bid-history line). Take the smaller of the two
-  // candidate scales so the table never pushes the hand off-screen.
-  const MIN_SCALE = 0.4;
-  const RESERVED_VERTICAL = 400; // approx. px taken by chrome above/below the table
-  const updateScale = useCallback(() => {
-    if (!containerRef.current) return;
-    const w = containerRef.current.offsetWidth;
-    if (w <= 0) return;
-    const wScale = (w - 8) / TABLE_W;
-    const hAvail = window.innerHeight - RESERVED_VERTICAL;
-    const hScale = hAvail > 0 ? hAvail / TABLE_H : MIN_SCALE;
-    const target = Math.min(wScale, hScale);
-    setScale(Math.max(MIN_SCALE, target));
-  }, []);
-
+  // Compute the table height from the viewport — width is automatic via
+  // `width: 100%` on the wrapper.
   useEffect(() => {
-    updateScale();
-    // ResizeObserver reacts to layout changes too (sidebar toggling, etc.),
-    // not just window resize.
-    let obs;
-    if (containerRef.current && typeof ResizeObserver !== "undefined") {
-      obs = new ResizeObserver(updateScale);
-      obs.observe(containerRef.current);
+    function updateHeight() {
+      const h = Math.max(MIN_HEIGHT, window.innerHeight - RESERVED_VERTICAL);
+      setTableHeight(h);
     }
-    window.addEventListener("resize", updateScale);
-    return () => {
-      if (obs) obs.disconnect();
-      window.removeEventListener("resize", updateScale);
-    };
-  }, [updateScale]);
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   // Close picker on outside click
   useEffect(() => {
@@ -131,14 +111,12 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
   }, [pickerOpen]);
 
   if (!game) return null;
-  // Player mode requires a seat; spectator mode renders without one.
   if (!spectatorMode && !mySeat) return null;
 
   const positioned = spectatorMode
     ? getSpectatorPositionedSeats(game)
     : getPositionedSeats(game, mySeat);
   const posMap = game.variant === 6 ? SEAT_POS_6 : SEAT_POS_4;
-  const cardCount = myHand?.length ?? 0;
 
   function renderSeat(direction, seat) {
     if (!seat) return null;
@@ -161,7 +139,7 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
           isMe={false}
           isActive={isActive(seat, game)}
           isDealer={game.dealerSeat === seat.seatIndex}
-          cardCount={cardCount}
+          cardCount={0}
           game={game}
           reaction={reactions.get(seat.seatIndex) ?? null}
           teamColor={tc}
@@ -173,100 +151,72 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
   const myTeamColor = mySeat ? (TEAM_COLORS[mySeat.team] ?? "#8aab8a") : "#8aab8a";
   const myPos = posMap.south;
 
-  const scaledHeight = TABLE_H * scale;
-
   return (
-    // Outer is always width:100% so we can measure the available width via
-    // containerRef and compute scale. Inner stays at TABLE_W × TABLE_H and
-    // is transform-scaled to fit. Height of outer follows the scaled height
-    // so layout flow is correct.
+    // Wrapper fills the available width of the play area; height stretches
+    // up to viewport minus reserved chrome. Seats positioned by percentage,
+    // so as the wrapper grows the seats spread out — but avatars/cards keep
+    // their natural sizes.
     <div
-      ref={containerRef}
       style={{
         width: "100%",
-        height: scaledHeight,
+        height: tableHeight,
+        minWidth: MIN_WIDTH,
+        position: "relative",
         overflow: "visible",
         flexShrink: 0,
-        position: "relative",
       }}
     >
-      {/* Inner: TABLE_W × TABLE_H layout, transform-scaled to whatever the
-          outer's measured width allows. Centered horizontally so it doesn't
-          hug the left when scale * TABLE_W < outer width. */}
+      {/* Trick area — centered in the table */}
       <div style={{
         position: "absolute",
+        top: "50%",
         left: "50%",
-        top: 0,
-        transform: `translateX(-50%) scale(${scale})`,
-        transformOrigin: "top center",
-        width: TABLE_W,
-        height: TABLE_H,
+        transform: "translate(-50%, -50%)",
+        zIndex: 2,
       }}>
+        <TrickArea
+          currentTrick={game.currentTrick}
+          completedTrick={game.completedTrick}
+          seats={game.seats}
+          trumpSuit={game.trumpSuit}
+          mySeatIndex={mySeat?.seatIndex ?? 0}
+        />
+      </div>
 
-        {/* ── Center area (no felt) ─────────────────────────────────────────────
-             The felt oval was removed. This div remains as the positioning
-             anchor for the TrickArea so its center sits at the middle of
-             the wider table. */}
+      {/* Opponent seats */}
+      {Object.entries(positioned).map(([dir, seat]) => renderSeat(dir, seat))}
+
+      {/* My seat (south) — only in non-spectator mode. In spectator mode
+          the south position is already included in `positioned` above. */}
+      {!spectatorMode && mySeat && (
         <div style={{
           position: "absolute",
-          left: 0, top: 70,
-          width: TABLE_W, height: 280,
-          pointerEvents: "none",
+          left: myPos.left,
+          top:  myPos.top,
+          transform: "translate(-50%, -50%)",
+          zIndex: 5,
         }}>
-
-          {/* TrickArea — centered inside oval */}
-          <div style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: game.variant === 6 ? 290 : 230,
-            zIndex: 2,
-          }}>
-            <TrickArea
-              currentTrick={game.currentTrick}
-              completedTrick={game.completedTrick}
-              seats={game.seats}
-              trumpSuit={game.trumpSuit}
-              mySeatIndex={mySeat?.seatIndex ?? 0}
-            />
-          </div>
+          <PlayerSeat
+            seat={mySeat}
+            isMe
+            isActive={isActive(mySeat, game)}
+            isDealer={game.dealerSeat === mySeat.seatIndex}
+            cardCount={0}
+            game={game}
+            reaction={reactions.get(mySeat.seatIndex) ?? null}
+            teamColor={myTeamColor}
+          />
         </div>
+      )}
 
-        {/* ── Opponent seats ────────────────────────────────────────────────── */}
-        {Object.entries(positioned).map(([dir, seat]) => renderSeat(dir, seat))}
-
-        {/* ── My seat (south) ───────────────────────────────────────────────── */}
-        {/* In spectator mode the south position is included in `positioned` already. */}
-        {!spectatorMode && mySeat && (
-          <div style={{
-            position: "absolute",
-            left: myPos.left,
-            top:  myPos.top,
-            transform: "translate(-50%, -50%)",
-            zIndex: 5,
-          }}>
-            <PlayerSeat
-              seat={mySeat}
-              isMe
-              isActive={isActive(mySeat, game)}
-              isDealer={game.dealerSeat === mySeat.seatIndex}
-              cardCount={cardCount}
-              game={game}
-              reaction={reactions.get(mySeat.seatIndex) ?? null}
-              teamColor={myTeamColor}
-            />
-          </div>
-        )}
-
-        {/* ── Emoji reaction picker — players only ───────────────────────────── */}
-        {!spectatorMode && mySeat && (
+      {/* Emoji reaction picker — players only, anchored near the south seat. */}
+      {!spectatorMode && mySeat && (
         <div
           ref={pickerRef}
           style={{
             position: "absolute",
-            left: myPos.left + 50,
-            top:  myPos.top - 18,
+            left: `calc(${myPos.left} + 50px)`,
+            top:  `calc(${myPos.top} - 28px)`,
             zIndex: 10,
           }}
         >
@@ -323,8 +273,7 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
             </div>
           )}
         </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
