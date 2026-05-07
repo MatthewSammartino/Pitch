@@ -344,7 +344,7 @@ export default function GameRoomPage() {
 
           {/* Mobile-only: live round scoring inline (sidebar isn't visible on mobile) */}
           {isMobile && !compactView && game.liveRoundScoring && (
-            <div style={{ marginBottom: 8, width: "100%", maxWidth: 540 }}>
+            <div style={{ marginBottom: 8, width: "100%", maxWidth: 880 }}>
               <LiveRoundPanel
                 liveRoundScoring={game.liveRoundScoring}
                 teamNames={game.teamNames}
@@ -360,7 +360,7 @@ export default function GameRoomPage() {
               border: "1px solid #3a5020",
               borderRadius: 12,
               marginBottom: 8,
-              width: "100%", maxWidth: 540,
+              width: "100%", maxWidth: 880,
             }}>
               <BidPanel
                 action={myTurn.action}
@@ -378,7 +378,7 @@ export default function GameRoomPage() {
               background: "rgba(255,255,255,.02)",
               border: "1px solid #1e4a1e",
               borderRadius: 12,
-              width: "100%", maxWidth: 540,
+              width: "100%", maxWidth: 880,
             }}>
               <HandDisplay
                 hand={myHand}
@@ -395,7 +395,7 @@ export default function GameRoomPage() {
               border: "1px dashed #2a3a5a",
               borderRadius: 12,
               padding: "20px 16px",
-              width: "100%", maxWidth: 540,
+              width: "100%", maxWidth: 880,
               textAlign: "center",
               color: "#5a6a8a",
               fontSize: 12,
@@ -408,7 +408,7 @@ export default function GameRoomPage() {
 
           {/* Bid history — hidden in compact mode */}
           {!compactView && game.status === "BIDDING" && Object.keys(game.bids || {}).length > 0 && (
-            <div style={{ textAlign: "center", color: "#3a5a3a", fontSize: 12, marginTop: 8, width: "100%", maxWidth: 540 }}>
+            <div style={{ textAlign: "center", color: "#3a5a3a", fontSize: 12, marginTop: 8, width: "100%", maxWidth: 880 }}>
               {game.seats.filter((s) => game.bids[s.seatIndex] !== undefined).map((s) => (
                 <span key={s.seatIndex} style={{ marginRight: 12 }}>
                   {s.displayName}: {game.bids[s.seatIndex] === "pass" ? "pass" : game.bids[s.seatIndex]}

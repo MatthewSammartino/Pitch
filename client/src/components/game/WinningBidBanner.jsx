@@ -22,7 +22,7 @@ export default function WinningBidBanner({ game }) {
 
   return (
     <div style={{
-      maxWidth: 540, margin: "8px auto 0",
+      maxWidth: 880, margin: "8px auto 0",
       background: "rgba(240,192,64,.06)",
       border: "1px solid #4a3010",
       borderRadius: 10,
