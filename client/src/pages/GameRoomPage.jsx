@@ -320,18 +320,19 @@ export default function GameRoomPage() {
             </div>
           )}
 
-          {/* Game play area */}
+          {/* Game play area — minimal padding so the table can stretch nearly
+              edge-to-edge (left edge bounded by sidebar, right edge by viewport). */}
           <div style={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            padding: isMobile ? "4px 4px" : "8px 16px",
+            padding: isMobile ? "4px 4px" : "8px 4px",
             minWidth: 0,
           }}>
 
           {/* Poker table */}
-          <div style={{ marginBottom: isMobile ? 6 : 10, width: isMobile ? "100%" : "auto" }}>
+          <div style={{ marginBottom: isMobile ? 6 : 10, width: "100%" }}>
             <PokerTable
               game={game}
               mySeat={mySeat}
