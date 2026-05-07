@@ -4,20 +4,20 @@ const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 const SUIT_COLORS = { s: "#e8dfc8", h: "#e05c5c", d: "#e05c5c", c: "#e8dfc8" };
 const SUITS = ["s", "h", "d", "c"];
 
-// Big bid buttons — meaningfully larger than nav buttons so they're hard to miss.
+// Bid buttons — visible but not oversized.
 const bidBtn = {
-  padding: "14px 26px",
-  borderRadius: 14,
+  padding: "8px 18px",
+  borderRadius: 12,
   border: "2px solid #4a6a3a",
   background: "rgba(240,192,64,.08)",
   color: "#f0e8d0",
   cursor: "pointer",
-  fontSize: 22,
+  fontSize: 16,
   fontFamily: "Georgia,serif",
   fontWeight: 700,
-  minWidth: 64,
+  minWidth: 48,
   transition: "all .12s",
-  boxShadow: "0 2px 6px rgba(0,0,0,.3)",
+  boxShadow: "0 2px 4px rgba(0,0,0,.25)",
 };
 
 const passBtn = {
@@ -25,24 +25,24 @@ const passBtn = {
   background: "rgba(0,0,0,.25)",
   border: "2px solid #5a2020",
   color: "#c89a9a",
-  fontSize: 16,
+  fontSize: 13,
   fontWeight: 500,
-  minWidth: 84,
+  minWidth: 64,
 };
 
 const trumpBtn = (color) => ({
-  padding: "16px 22px",
-  borderRadius: 14,
+  padding: "10px 16px",
+  borderRadius: 12,
   border: `2px solid ${color}`,
   background: "rgba(255,255,255,.04)",
   color,
   cursor: "pointer",
-  fontSize: 36,
+  fontSize: 26,
   lineHeight: 1,
   fontFamily: "Georgia,serif",
   fontWeight: 700,
-  minWidth: 64,
-  boxShadow: "0 2px 6px rgba(0,0,0,.3)",
+  minWidth: 52,
+  boxShadow: "0 2px 4px rgba(0,0,0,.25)",
   transition: "all .12s",
 });
 
@@ -51,17 +51,16 @@ export default function BidPanel({ action, validBids, canPass, onBid, onDeclareT
     return (
       <div style={{
         textAlign: "center",
-        padding: "14px 12px",
-        // Subtle gold glow so the panel pops on the page when it's your turn.
-        boxShadow: "0 0 20px rgba(240,192,64,.18) inset, 0 0 0 1px rgba(240,192,64,.18)",
-        borderRadius: 12,
+        padding: "10px 10px",
+        boxShadow: "0 0 16px rgba(240,192,64,.16) inset, 0 0 0 1px rgba(240,192,64,.16)",
+        borderRadius: 10,
       }}>
         <div style={{
           color: "#f0c040",
-          fontSize: 15,
+          fontSize: 12,
           fontWeight: 700,
-          marginBottom: 14,
-          letterSpacing: 1.5,
+          marginBottom: 8,
+          letterSpacing: 1.2,
           textTransform: "uppercase",
           fontFamily: "Georgia,serif",
         }}>

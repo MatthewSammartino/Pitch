@@ -85,17 +85,16 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
   const [scale, setScale] = useState(1);
 
   // Measure the wrapper's available width and scale the inner TABLE_W×TABLE_H
-  // box to fit. Scales DOWN on narrow viewports and UP on wider ones, so the
-  // play area always uses the full available space. Capped at MAX_SCALE so
-  // the cards don't blow up to billboard size on huge monitors.
+  // box to fit. Scales DOWN on narrow viewports and UP on wider ones — no
+  // upper cap, so big monitors actually use the space. Floor only to keep
+  // the table from collapsing to nothing during measurement glitches.
   const MIN_SCALE = 0.4;
-  const MAX_SCALE = 1.6;
   const updateScale = useCallback(() => {
     if (!containerRef.current) return;
     const w = containerRef.current.offsetWidth;
     if (w <= 0) return;
     const target = (w - 8) / TABLE_W;
-    setScale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, target)));
+    setScale(Math.max(MIN_SCALE, target));
   }, []);
 
   useEffect(() => {
