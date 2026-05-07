@@ -72,31 +72,17 @@ function getSpectatorPositionedSeats(game) {
   };
 }
 
-// Reserved vertical space (px) for everything else on the page so the table
-// height never pushes the hand off-screen. Approximate sum of: navbar +
-// scoreboard + winning-bid banner + bid panel + hand + bid-history line.
-const RESERVED_VERTICAL = 400;
 // Soft minimums so the table doesn't collapse on tiny windows.
-const MIN_HEIGHT = 300;
+const MIN_HEIGHT = 240;
 const MIN_WIDTH  = 320;
 
 export default function PokerTable({ game, mySeat, myHand, reactions, onReact, spectatorMode = false }) {
   const isMobile = useIsMobile();
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef(null);
-  const [tableHeight, setTableHeight] = useState(MIN_HEIGHT);
-
-  // Compute the table height from the viewport — width is automatic via
-  // `width: 100%` on the wrapper.
-  useEffect(() => {
-    function updateHeight() {
-      const h = Math.max(MIN_HEIGHT, window.innerHeight - RESERVED_VERTICAL);
-      setTableHeight(h);
-    }
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
+  // Height is determined by the parent flex container (PokerTable's wrapper
+  // is `height: 100%` and takes whatever space the play area gives it after
+  // siblings — bid panel, hand, etc. — claim theirs). No more manual math.
 
   // Close picker on outside click
   useEffect(() => {
@@ -152,18 +138,19 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
   const myPos = posMap.south;
 
   return (
-    // Wrapper fills the available width of the play area; height stretches
-    // up to viewport minus reserved chrome. Seats positioned by percentage,
-    // so as the wrapper grows the seats spread out — but avatars/cards keep
-    // their natural sizes.
+    // Wrapper fills both axes of whatever the parent gives it (the play
+    // area's flex column with this as the flex:1 child). Seats positioned
+    // by percentage, so as the wrapper grows the seats spread out — but
+    // avatars/cards keep their natural sizes.
     <div
       style={{
         width: "100%",
-        height: tableHeight,
+        height: "100%",
         minWidth: MIN_WIDTH,
+        minHeight: MIN_HEIGHT,
         position: "relative",
         overflow: "visible",
-        flexShrink: 0,
+        flexShrink: 1,
       }}
     >
       {/* Trick area — centered in the table */}

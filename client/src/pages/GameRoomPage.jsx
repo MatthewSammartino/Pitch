@@ -188,7 +188,12 @@ export default function GameRoomPage() {
 
   return (
     <div style={{
-      minHeight: "100vh",
+      // Lock the page to exactly the viewport height and disable scrolling.
+      // The table fills whatever space is left after navbar, scoreboard,
+      // banners, and the hand/bid panel claim theirs.
+      height: "100vh",
+      maxHeight: "100vh",
+      overflow: "hidden",
       background: "linear-gradient(160deg,#071a07 0%,#0d2b0d 40%,#091a09 100%)",
       color: "#e8dfc8",
       fontFamily: "Georgia,serif",
@@ -321,7 +326,8 @@ export default function GameRoomPage() {
           )}
 
           {/* Game play area — minimal padding so the table can stretch nearly
-              edge-to-edge (left edge bounded by sidebar, right edge by viewport). */}
+              edge-to-edge (left edge bounded by sidebar, right edge by viewport).
+              flex column: table grows (flex:1), everything below is fixed-size. */}
           <div style={{
             flex: 1,
             display: "flex",
@@ -329,10 +335,18 @@ export default function GameRoomPage() {
             alignItems: "center",
             padding: isMobile ? "4px 4px" : "8px 4px",
             minWidth: 0,
+            minHeight: 0,
           }}>
 
-          {/* Poker table */}
-          <div style={{ marginBottom: isMobile ? 6 : 10, width: "100%" }}>
+          {/* Poker table — flex:1 so it takes whatever vertical space is left
+              after the bid panel + hand below claim theirs. */}
+          <div style={{
+            marginBottom: isMobile ? 6 : 10,
+            width: "100%",
+            flex: 1,
+            display: "flex",
+            minHeight: 0,
+          }}>
             <PokerTable
               game={game}
               mySeat={mySeat}
