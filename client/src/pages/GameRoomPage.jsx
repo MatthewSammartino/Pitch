@@ -15,7 +15,7 @@ import ChatPanel from "../components/game/ChatPanel";
 import PokerTable from "../components/game/PokerTable";
 import WinningBidBanner from "../components/game/WinningBidBanner";
 import { useSound } from "../context/SoundContext";
-import { playCardSound } from "../lib/sounds";
+import { playCardSound, playYourTurnSound, playWinBidSound } from "../lib/sounds";
 
 
 export default function GameRoomPage() {
@@ -42,9 +42,14 @@ export default function GameRoomPage() {
   const socketRef = useRef(null);
   const reactionCounterRef = useRef(0);
   const { enabled: soundEnabled } = useSound();
-  // Track previous trick length so we can detect when a new card has been
-  // played and trigger the card-play sound effect.
-  const prevTrickLenRef = useRef(0);
+  // Total cards on the table (currentTrick + completedTrick) — grows with
+  // every play, including the trick-completing card. We can't watch
+  // currentTrick alone because the server moves the cards into
+  // `completedTrick` once the trick is full, so the 4th/6th card would
+  // be missed.
+  const prevTrickCountRef = useRef(0);
+  const prevStatusRef = useRef(null);
+  const prevHighBidderRef = useRef(-1);
   const soundEnabledRef = useRef(soundEnabled);
   soundEnabledRef.current = soundEnabled;
 
@@ -67,13 +72,38 @@ export default function GameRoomPage() {
     socket.on("connect_error", onConnectError);
 
     socket.on("game:state", (state) => {
-      // Detect a card-play: currentTrick grew. (When the trick completes,
-      // the server clears it back to [] — that's a shrink, not a play.)
-      const newLen = state?.currentTrick?.length ?? 0;
-      if (newLen > prevTrickLenRef.current && soundEnabledRef.current) {
+      // ── Card-play sound ────────────────────────────────────────────
+      // Total cards visible on the table (currentTrick + completedTrick).
+      // Growing means a card was just played; shrinking means a trick
+      // completed and the table is being cleared. Including completedTrick
+      // catches the trick-completing card the server moves out of
+      // currentTrick before broadcasting.
+      const cur = state?.currentTrick?.length ?? 0;
+      const done = state?.completedTrick?.plays?.length ?? 0;
+      const newCount = cur + done;
+      if (newCount > prevTrickCountRef.current && soundEnabledRef.current) {
         playCardSound();
       }
-      prevTrickLenRef.current = newLen;
+      prevTrickCountRef.current = newCount;
+
+      // ── Bid-won sound ──────────────────────────────────────────────
+      // Plays when bidding ends and the local user is the high bidder.
+      const prevStatus = prevStatusRef.current;
+      const newStatus = state?.status ?? null;
+      const newHigh = state?.highBidderSeat ?? -1;
+      if (
+        prevStatus === "BIDDING" &&
+        newStatus === "TRUMP_DECLARATION" &&
+        newHigh >= 0 &&
+        soundEnabledRef.current
+      ) {
+        const winnerSeat = state.seats?.find((s) => s.seatIndex === newHigh);
+        if (winnerSeat?.userId === user?.id) {
+          playWinBidSound();
+        }
+      }
+      prevStatusRef.current = newStatus;
+      prevHighBidderRef.current = newHigh;
 
       setGame(state);
       // Clear my-turn if it's no longer my turn
@@ -94,6 +124,7 @@ export default function GameRoomPage() {
       if (info.userId === user?.id) {
         setMyTurn(info);
         if (info.validCards) setValidCards(info.validCards);
+        if (soundEnabledRef.current) playYourTurnSound();
       } else {
         setMyTurn(null);
         setValidCards([]);

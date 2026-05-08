@@ -5,7 +5,7 @@ import Navbar from "../components/layout/Navbar";
 import Card from "../components/game/Card";
 import { useSuitColors, SUIT_COLOR_MODES } from "../context/SuitColorContext";
 import { useSound } from "../context/SoundContext";
-import { playCardSound } from "../lib/sounds";
+import { playCardSound, playYourTurnSound, playWinBidSound } from "../lib/sounds";
 
 const LEGACY_NAMES = ["matt", "seth", "mack", "arnav", "henry"];
 
@@ -248,20 +248,28 @@ export default function ProfilePage() {
           </button>
 
           {soundEnabled && (
-            <button
-              onClick={() => playCardSound()}
-              style={{
-                marginTop: 10,
-                padding: "6px 14px", borderRadius: 14,
-                border: "1px solid #2a4a2a",
-                background: "transparent",
-                color: "#8aab8a",
-                cursor: "pointer", fontSize: 12,
-                fontFamily: "Georgia,serif",
-              }}
-            >
-              ▶ Test sound
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              {[
+                { label: "▶ Card play", onClick: () => playCardSound() },
+                { label: "▶ Your turn", onClick: () => playYourTurnSound() },
+                { label: "▶ Won bid",   onClick: () => playWinBidSound() },
+              ].map((b) => (
+                <button
+                  key={b.label}
+                  onClick={b.onClick}
+                  style={{
+                    padding: "6px 14px", borderRadius: 14,
+                    border: "1px solid #2a4a2a",
+                    background: "transparent",
+                    color: "#8aab8a",
+                    cursor: "pointer", fontSize: 12,
+                    fontFamily: "Georgia,serif",
+                  }}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
 

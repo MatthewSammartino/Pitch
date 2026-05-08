@@ -78,3 +78,57 @@ export function playCardSound(volume = 0.35) {
     // If audio fails for any reason, silently no-op. Sound is non-critical.
   }
 }
+
+// Two-note attention chime (C5 → E5) for "it's your turn".
+export function playYourTurnSound(volume = 0.3) {
+  const ac = getCtx();
+  if (!ac) return;
+  ensureRunning(ac);
+  try {
+    const now = ac.currentTime;
+    const notes = [523.25, 659.25]; // C5, E5
+    notes.forEach((freq, i) => {
+      const t = now + i * 0.12;
+      const osc = ac.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const gain = ac.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(volume, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.start(t);
+      osc.stop(t + 0.34);
+    });
+  } catch {
+    /* noop */
+  }
+}
+
+// Quick ascending arpeggio (C-E-G-C) for "you won the bid".
+export function playWinBidSound(volume = 0.32) {
+  const ac = getCtx();
+  if (!ac) return;
+  ensureRunning(ac);
+  try {
+    const now = ac.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+    notes.forEach((freq, i) => {
+      const t = now + i * 0.08;
+      const osc = ac.createOscillator();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      const gain = ac.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(volume, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.start(t);
+      osc.stop(t + 0.42);
+    });
+  } catch {
+    /* noop */
+  }
+}
