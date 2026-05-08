@@ -50,10 +50,11 @@ export default function GameRoomPage() {
   const prevTrickCountRef = useRef(0);
   const prevStatusRef = useRef(null);
   const prevHighBidderRef = useRef(-1);
-  // Tracks the most recently seen completedTrick by key (winnerSeat + first
-  // card) so we can detect when a new trick has just been resolved without
-  // double-firing on repeat state emits for the same trick.
-  const prevCompletedTrickKeyRef = useRef(null);
+  // The most recently seen trick number (monotonically increasing across the
+  // entire game, stamped server-side on each completedTrick). Lets us detect
+  // a fresh trick resolution without false matches and without double-firing
+  // on repeat state emits for the same trick.
+  const prevTrickNumberRef = useRef(0);
   const soundEnabledRef = useRef(soundEnabled);
   soundEnabledRef.current = soundEnabled;
 
@@ -92,11 +93,16 @@ export default function GameRoomPage() {
 
       // ── Trick-won sound ────────────────────────────────────────────
       // Fires once per trick when a fresh completedTrick is broadcast and
-      // the local user is the winner. Keyed by winnerSeat + first card so
-      // repeat state emits for the same trick don't double-fire.
+      // the local user is the winner. Server stamps a monotonic trickNumber
+      // on each completedTrick so we can compare against the prior one to
+      // know whether this is a new trick or just a re-broadcast of the same.
       const ct = state?.completedTrick;
-      const ctKey = ct ? `${ct.winnerSeat}-${ct.plays?.[0]?.card ?? ""}` : null;
-      if (ctKey && ctKey !== prevCompletedTrickKeyRef.current && soundEnabledRef.current) {
+      const newTrickNumber = ct?.trickNumber ?? 0;
+      if (
+        newTrickNumber > prevTrickNumberRef.current &&
+        ct &&
+        soundEnabledRef.current
+      ) {
         const winSeat = state.seats?.find((s) => s.seatIndex === ct.winnerSeat);
         if (winSeat?.userId === user?.id) {
           // Tiny delay so the card-play snap from the trick-completing card
@@ -104,7 +110,9 @@ export default function GameRoomPage() {
           setTimeout(() => playWinTrickSound(), 180);
         }
       }
-      prevCompletedTrickKeyRef.current = ctKey;
+      if (newTrickNumber > prevTrickNumberRef.current) {
+        prevTrickNumberRef.current = newTrickNumber;
+      }
 
       // ── Bid-won sound ──────────────────────────────────────────────
       // Plays when bidding ends and the local user is the high bidder.

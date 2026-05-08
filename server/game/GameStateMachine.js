@@ -53,6 +53,11 @@ class GameStateMachine {
     // Holds the last completed trick for display until the next trick starts
     this.completedTrick = null;
 
+    // Monotonically increasing across the entire game (does NOT reset at
+    // round end). Stamped onto each completedTrick so clients can reliably
+    // detect a new trick result without false matches across rounds.
+    this.totalTricks = 0;
+
     // Bidder must lead trump on the first trick of each round
     this.mustLeadTrump = false;
 
@@ -256,7 +261,8 @@ class GameStateMachine {
     if (this.currentTrick.length === this.variant) {
       // Trick complete — save for display before clearing
       const winnerSeat = determineTrickWinner(this.currentTrick, this.trumpSuit);
-      this.completedTrick = { plays: [...this.currentTrick], winnerSeat };
+      this.totalTricks++;
+      this.completedTrick = { plays: [...this.currentTrick], winnerSeat, trickNumber: this.totalTricks };
       this.trickHistory.push({ plays: [...this.currentTrick], winnerSeat });
       this.currentTrick   = [];
       this.nextLeaderSeat = winnerSeat;
