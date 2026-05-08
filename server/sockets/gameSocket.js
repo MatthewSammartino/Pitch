@@ -271,8 +271,13 @@ module.exports = function gameSocket(nsp) {
       try { await finalizeSession(sessionId, game.teamScores, game.seats); } catch (e) { /* ignore */ }
       GameStore.deleteGame(sessionId);
     } else {
-      // Short delay so clients can show the round summary before dealing
+      // Short delay so clients can show the round summary before dealing.
+      // Clear `completedTrick` on the server before re-emitting state so the
+      // new round doesn't ship with the last trick from the prior round
+      // still attached (which would cause the cards to flash back onto the
+      // table after the round summary modal).
       setTimeout(() => {
+        game.completedTrick = null;
         nsp.to(sessionId).emit("game:state", game.getPublicState());
         broadcastHands(sessionId, game);
         broadcastTurnNotice(sessionId, game);
