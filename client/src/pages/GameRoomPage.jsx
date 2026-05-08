@@ -15,7 +15,7 @@ import ChatPanel from "../components/game/ChatPanel";
 import PokerTable from "../components/game/PokerTable";
 import WinningBidBanner from "../components/game/WinningBidBanner";
 import { useSound } from "../context/SoundContext";
-import { playCardSound, playYourTurnSound, playWinBidSound } from "../lib/sounds";
+import { playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound } from "../lib/sounds";
 
 
 export default function GameRoomPage() {
@@ -50,6 +50,10 @@ export default function GameRoomPage() {
   const prevTrickCountRef = useRef(0);
   const prevStatusRef = useRef(null);
   const prevHighBidderRef = useRef(-1);
+  // Tracks the most recently seen completedTrick by key (winnerSeat + first
+  // card) so we can detect when a new trick has just been resolved without
+  // double-firing on repeat state emits for the same trick.
+  const prevCompletedTrickKeyRef = useRef(null);
   const soundEnabledRef = useRef(soundEnabled);
   soundEnabledRef.current = soundEnabled;
 
@@ -85,6 +89,22 @@ export default function GameRoomPage() {
         playCardSound();
       }
       prevTrickCountRef.current = newCount;
+
+      // ── Trick-won sound ────────────────────────────────────────────
+      // Fires once per trick when a fresh completedTrick is broadcast and
+      // the local user is the winner. Keyed by winnerSeat + first card so
+      // repeat state emits for the same trick don't double-fire.
+      const ct = state?.completedTrick;
+      const ctKey = ct ? `${ct.winnerSeat}-${ct.plays?.[0]?.card ?? ""}` : null;
+      if (ctKey && ctKey !== prevCompletedTrickKeyRef.current && soundEnabledRef.current) {
+        const winSeat = state.seats?.find((s) => s.seatIndex === ct.winnerSeat);
+        if (winSeat?.userId === user?.id) {
+          // Tiny delay so the card-play snap from the trick-completing card
+          // finishes before the trick-won bell starts.
+          setTimeout(() => playWinTrickSound(), 180);
+        }
+      }
+      prevCompletedTrickKeyRef.current = ctKey;
 
       // ── Bid-won sound ──────────────────────────────────────────────
       // Plays when bidding ends and the local user is the high bidder.

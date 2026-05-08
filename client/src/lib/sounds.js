@@ -106,6 +106,34 @@ export function playYourTurnSound(volume = 0.3) {
   }
 }
 
+// Light two-note "ding-ding" (G5 → C6) for "you won the trick". Shorter
+// and softer than the bid-won arpeggio since it fires once per trick.
+export function playWinTrickSound(volume = 0.28) {
+  const ac = getCtx();
+  if (!ac) return;
+  ensureRunning(ac);
+  try {
+    const now = ac.currentTime;
+    const notes = [783.99, 1046.5]; // G5, C6
+    notes.forEach((freq, i) => {
+      const t = now + i * 0.07;
+      const osc = ac.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const gain = ac.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(volume, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.start(t);
+      osc.stop(t + 0.27);
+    });
+  } catch {
+    /* noop */
+  }
+}
+
 // Quick ascending arpeggio (C-E-G-C) for "you won the bid".
 export function playWinBidSound(volume = 0.32) {
   const ac = getCtx();

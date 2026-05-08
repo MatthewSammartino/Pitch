@@ -5,7 +5,7 @@ import Navbar from "../components/layout/Navbar";
 import Card from "../components/game/Card";
 import { useSuitColors, SUIT_COLOR_MODES } from "../context/SuitColorContext";
 import { useSound } from "../context/SoundContext";
-import { playCardSound, playYourTurnSound, playWinBidSound } from "../lib/sounds";
+import { playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound } from "../lib/sounds";
 
 const LEGACY_NAMES = ["matt", "seth", "mack", "arnav", "henry"];
 
@@ -250,9 +250,10 @@ export default function ProfilePage() {
           {soundEnabled && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
               {[
-                { label: "▶ Card play", onClick: () => playCardSound() },
-                { label: "▶ Your turn", onClick: () => playYourTurnSound() },
-                { label: "▶ Won bid",   onClick: () => playWinBidSound() },
+                { label: "▶ Card play",  onClick: () => playCardSound() },
+                { label: "▶ Your turn",  onClick: () => playYourTurnSound() },
+                { label: "▶ Won trick",  onClick: () => playWinTrickSound() },
+                { label: "▶ Won bid",    onClick: () => playWinBidSound() },
               ].map((b) => (
                 <button
                   key={b.label}
