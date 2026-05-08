@@ -5,7 +5,11 @@ import Navbar from "../components/layout/Navbar";
 import Card from "../components/game/Card";
 import { useSuitColors, SUIT_COLOR_MODES } from "../context/SuitColorContext";
 import { useSound } from "../context/SoundContext";
-import { playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound } from "../lib/sounds";
+import {
+  playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound,
+  playMadeBidSound, playSetOpponentSound, playWinGameSound,
+  MADE_BID_VARIANTS, SET_OPPONENT_VARIANTS, WIN_GAME_VARIANTS,
+} from "../lib/sounds";
 
 const LEGACY_NAMES = ["matt", "seth", "mack", "arnav", "henry"];
 
@@ -70,7 +74,12 @@ const S = {
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
   const { mode: suitMode, setMode: setSuitMode } = useSuitColors();
-  const { enabled: soundEnabled, setEnabled: setSoundEnabled } = useSound();
+  const {
+    enabled: soundEnabled, setEnabled: setSoundEnabled,
+    madeBidVariant, setMadeBidVariant,
+    setOpponentVariant, setSetOpponentVariant,
+    winGameVariant, setWinGameVariant,
+  } = useSound();
 
   // Display name edit
   const [name, setName] = useState(user?.display_name || "");
@@ -248,29 +257,81 @@ export default function ProfilePage() {
           </button>
 
           {soundEnabled && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-              {[
-                { label: "▶ Card play",  onClick: () => playCardSound() },
-                { label: "▶ Your turn",  onClick: () => playYourTurnSound() },
-                { label: "▶ Won trick",  onClick: () => playWinTrickSound() },
-                { label: "▶ Won bid",    onClick: () => playWinBidSound() },
-              ].map((b) => (
-                <button
-                  key={b.label}
-                  onClick={b.onClick}
-                  style={{
-                    padding: "6px 14px", borderRadius: 14,
-                    border: "1px solid #2a4a2a",
-                    background: "transparent",
-                    color: "#8aab8a",
-                    cursor: "pointer", fontSize: 12,
-                    fontFamily: "Georgia,serif",
-                  }}
-                >
-                  {b.label}
-                </button>
-              ))}
-            </div>
+            <>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                {[
+                  { label: "▶ Card play",  onClick: () => playCardSound() },
+                  { label: "▶ Your turn",  onClick: () => playYourTurnSound() },
+                  { label: "▶ Won trick",  onClick: () => playWinTrickSound() },
+                  { label: "▶ Won bid",    onClick: () => playWinBidSound() },
+                ].map((b) => (
+                  <button
+                    key={b.label}
+                    onClick={b.onClick}
+                    style={{
+                      padding: "6px 14px", borderRadius: 14,
+                      border: "1px solid #2a4a2a",
+                      background: "transparent",
+                      color: "#8aab8a",
+                      cursor: "pointer", fontSize: 12,
+                      fontFamily: "Georgia,serif",
+                    }}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Celebration variants */}
+              <div style={{ marginTop: 22, paddingTop: 16, borderTop: "1px solid #1a3a1a" }}>
+                <div style={{ color: "#5a7a5a", fontSize: 11, fontFamily: "monospace", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
+                  Celebration sounds
+                </div>
+                {[
+                  { label: "Won the game",  variants: WIN_GAME_VARIANTS,    cur: winGameVariant,     set: setWinGameVariant,     play: playWinGameSound },
+                  { label: "Made your bid", variants: MADE_BID_VARIANTS,    cur: madeBidVariant,     set: setMadeBidVariant,     play: playMadeBidSound },
+                  { label: "Set opponent",  variants: SET_OPPONENT_VARIANTS, cur: setOpponentVariant, set: setSetOpponentVariant, play: playSetOpponentSound },
+                ].map((row) => (
+                  <div key={row.label} style={{ marginBottom: 14 }}>
+                    <div style={{ color: "#e8dfc8", fontSize: 13, marginBottom: 6 }}>{row.label}</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      {Object.entries(row.variants).map(([key, info]) => {
+                        const active = row.cur === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => { row.set(key); row.play(key); }}
+                            style={{
+                              padding: "5px 12px", borderRadius: 12,
+                              border: `1px solid ${active ? "#f0c040" : "#2a4a2a"}`,
+                              background: active ? "rgba(240,192,64,.12)" : "transparent",
+                              color: active ? "#f0c040" : "#8aab8a",
+                              cursor: "pointer", fontSize: 12,
+                              fontFamily: "Georgia,serif",
+                            }}
+                          >
+                            {active ? "✓ " : ""}{info.label}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => row.set("off")}
+                        style={{
+                          padding: "5px 12px", borderRadius: 12,
+                          border: `1px solid ${row.cur === "off" ? "#5a2020" : "#2a4a2a"}`,
+                          background: row.cur === "off" ? "rgba(90,32,32,.18)" : "transparent",
+                          color: row.cur === "off" ? "#c89a9a" : "#5a7a5a",
+                          cursor: "pointer", fontSize: 12,
+                          fontFamily: "Georgia,serif",
+                        }}
+                      >
+                        {row.cur === "off" ? "✓ " : ""}Off
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

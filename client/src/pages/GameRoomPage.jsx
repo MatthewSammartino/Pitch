@@ -15,7 +15,10 @@ import ChatPanel from "../components/game/ChatPanel";
 import PokerTable from "../components/game/PokerTable";
 import WinningBidBanner from "../components/game/WinningBidBanner";
 import { useSound } from "../context/SoundContext";
-import { playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound } from "../lib/sounds";
+import {
+  playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound,
+  playMadeBidSound, playSetOpponentSound, playWinGameSound,
+} from "../lib/sounds";
 
 
 export default function GameRoomPage() {
@@ -41,7 +44,18 @@ export default function GameRoomPage() {
   const isMobile = useIsMobile();
   const socketRef = useRef(null);
   const reactionCounterRef = useRef(0);
-  const { enabled: soundEnabled } = useSound();
+  const {
+    enabled: soundEnabled,
+    madeBidVariant, setOpponentVariant, winGameVariant,
+  } = useSound();
+  const soundPrefsRef = useRef({ madeBidVariant, setOpponentVariant, winGameVariant });
+  soundPrefsRef.current = { madeBidVariant, setOpponentVariant, winGameVariant };
+  // Latest `game` state, accessible inside socket handlers without restating
+  // the effect on every game update.
+  const gameRef = useRef(null);
+  // Latest user, same reason.
+  const userRef = useRef(user);
+  userRef.current = user;
   // Total cards on the table (currentTrick + completedTrick) — grows with
   // every play, including the trick-completing card. We can't watch
   // currentTrick alone because the server moves the cards into
@@ -133,6 +147,7 @@ export default function GameRoomPage() {
       prevStatusRef.current = newStatus;
       prevHighBidderRef.current = newHigh;
 
+      gameRef.current = state;
       setGame(state);
       // Clear my-turn if it's no longer my turn
       setMyTurn((prev) => {
@@ -166,11 +181,39 @@ export default function GameRoomPage() {
       // before the round summary modal appears. The next game:state push will
       // bring fresh data when the new round deals.
       setGame((prev) => prev ? { ...prev, currentTrick: [], completedTrick: null } : prev);
+
+      // ── Made-bid / set-opponent celebration ──────────────────────
+      if (!soundEnabledRef.current) return;
+      const g = gameRef.current;
+      const u = userRef.current;
+      if (!g?.seats || !u) return;
+      const bidder = g.seats.find((s) => s.seatIndex === summary.bidderSeat);
+      const me     = g.seats.find((s) => s.userId === u.id);
+      if (!bidder || !me) return;
+      const sameTeam = bidder.team === me.team;
+      const prefs = soundPrefsRef.current;
+      // Slight delay so the round-summary modal can animate in first.
+      if (sameTeam && summary.bidMade && prefs.madeBidVariant !== "off") {
+        setTimeout(() => playMadeBidSound(prefs.madeBidVariant), 250);
+      } else if (!sameTeam && !summary.bidMade && prefs.setOpponentVariant !== "off") {
+        setTimeout(() => playSetOpponentSound(prefs.setOpponentVariant), 250);
+      }
     });
 
     socket.on("game:game_over", (result) => {
       setGameOver(result);
       setRoundSummary(null);
+      // ── Win-game celebration ─────────────────────────────────────
+      if (!soundEnabledRef.current) return;
+      const g = gameRef.current;
+      const u = userRef.current;
+      if (!g?.seats || !u) return;
+      const me = g.seats.find((s) => s.userId === u.id);
+      if (!me) return;
+      const prefs = soundPrefsRef.current;
+      if (me.team === result.winner && prefs.winGameVariant !== "off") {
+        setTimeout(() => playWinGameSound(prefs.winGameVariant), 350);
+      }
     });
 
     socket.on("game:error", ({ message }) => {
