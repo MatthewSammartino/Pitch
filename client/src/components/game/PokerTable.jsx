@@ -125,7 +125,6 @@ export default function PokerTable({ game, mySeat, myHand, reactions, onReact, s
           isMe={false}
           isActive={isActive(seat, game)}
           isDealer={game.dealerSeat === seat.seatIndex}
-          cardCount={0}
           game={game}
           reaction={reactions.get(seat.seatIndex) ?? null}
           teamColor={tc}
