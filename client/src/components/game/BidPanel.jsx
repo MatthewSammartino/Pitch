@@ -1,8 +1,22 @@
+import { useSuitColors } from "../../context/SuitColorContext";
+
 const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
-// Standard playing-card colors for the trump picker. Spades/clubs use a
-// near-white that reads against the dark felt rather than pure black.
-const SUIT_COLORS = { s: "#e8dfc8", h: "#e05c5c", d: "#e05c5c", c: "#e8dfc8" };
 const SUITS = ["s", "h", "d", "c"];
+
+// Trump picker buttons sit on the dark felt, so pure-black/dark-blue/dark-green
+// would be invisible. Map the user's card color preference to a brightened
+// version that's legible against the dark background.
+function pickerColor(c) {
+  // c is the user's card color (e.g. "#1a1a1a" for ♠ in classic mode). Return
+  // a lighter / more saturated version for use on dark backgrounds.
+  switch (c) {
+    case "#1a1a1a":  return "#e8dfc8"; // black → cream
+    case "#c11414":  return "#e05c5c"; // dark red → bright red
+    case "#1a5cb8":  return "#5b9cf6"; // dark blue → bright blue
+    case "#1a7a3a":  return "#5eca7a"; // dark green → bright green
+    default:         return c;
+  }
+}
 
 // Bid buttons — visible but not oversized.
 const bidBtn = {
@@ -47,6 +61,8 @@ const trumpBtn = (color) => ({
 });
 
 export default function BidPanel({ action, validBids, canPass, onBid, onDeclareTrump }) {
+  const { colors: cardColors } = useSuitColors();
+
   if (action === "bid") {
     return (
       <div style={{
@@ -133,7 +149,7 @@ export default function BidPanel({ action, validBids, canPass, onBid, onDeclareT
           {SUITS.map((s) => (
             <button
               key={s}
-              style={trumpBtn(SUIT_COLORS[s])}
+              style={trumpBtn(pickerColor(cardColors[s]))}
               onClick={() => onDeclareTrump(s)}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "rgba(255,255,255,.08)";

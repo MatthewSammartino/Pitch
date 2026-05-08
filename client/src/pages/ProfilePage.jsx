@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
+import Card from "../components/game/Card";
+import { useSuitColors, SUIT_COLOR_MODES } from "../context/SuitColorContext";
 
 const LEGACY_NAMES = ["matt", "seth", "mack", "arnav", "henry"];
 
@@ -65,6 +67,7 @@ const S = {
 
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
+  const { mode: suitMode, setMode: setSuitMode } = useSuitColors();
 
   // Display name edit
   const [name, setName] = useState(user?.display_name || "");
@@ -142,6 +145,63 @@ export default function ProfilePage() {
           </div>
           <div style={{ marginTop: 16, color: "#5a7a5a", fontSize: 13 }}>
             Email: {user?.email || "—"}
+          </div>
+        </div>
+
+        {/* Suit colors */}
+        <div style={S.card}>
+          <div style={S.cardTitle}>Card Suit Colors</div>
+          <p style={{ color: "#8aab8a", fontSize: 13, lineHeight: 1.5, margin: "0 0 16px" }}>
+            How suits are colored on cards across the site. Saved to this browser
+            only (not synced across devices).
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            {Object.entries(SUIT_COLOR_MODES).map(([key, info]) => {
+              const active = suitMode === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSuitMode(key)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "10px 14px", borderRadius: 10,
+                    border: `1px solid ${active ? "#f0c040" : "#2a4a2a"}`,
+                    background: active ? "rgba(240,192,64,.1)" : "rgba(255,255,255,.02)",
+                    color: active ? "#f0c040" : "#e8dfc8",
+                    cursor: "pointer", textAlign: "left",
+                    fontFamily: "Georgia,serif",
+                    transition: "all .12s",
+                  }}
+                >
+                  {/* Suit swatches */}
+                  <div style={{ display: "flex", gap: 4, fontSize: 22, lineHeight: 1, fontWeight: 700 }}>
+                    <span style={{ color: info.colors.s }}>♠</span>
+                    <span style={{ color: info.colors.h }}>♥</span>
+                    <span style={{ color: info.colors.d }}>♦</span>
+                    <span style={{ color: info.colors.c }}>♣</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{info.label}</div>
+                    <div style={{ fontSize: 12, color: "#8aab8a", marginTop: 2 }}>
+                      {info.description}
+                    </div>
+                  </div>
+                  {active && <span style={{ fontSize: 13 }}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Live preview */}
+          <div style={{ color: "#5a7a5a", fontSize: 11, fontFamily: "monospace", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
+            Preview
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
+            <Card cardId="As" size="md" />
+            <Card cardId="Kh" size="md" />
+            <Card cardId="Qd" size="md" />
+            <Card cardId="Jc" size="md" />
           </div>
         </div>
 

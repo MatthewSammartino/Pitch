@@ -6,11 +6,9 @@
 // "A","K","Q","J","10","9","8","7","6","5","4","3","2" and suit is "h","d","c","s".
 // "10" is two characters, all other ranks are one — same as parseCard in TrickArea.
 
-const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
+import { useSuitColors } from "../../context/SuitColorContext";
 
-// Standard playing-card colors — black for spades/clubs, red for hearts/diamonds.
-// Per-user color customization (4-color decks etc.) is Wave 2.
-const SUIT_COLORS = { h: "#c11414", d: "#c11414", c: "#1a1a1a", s: "#1a1a1a" };
+const SUIT_SYMBOLS = { h: "♥", d: "♦", c: "♣", s: "♠" };
 
 const SIZES = {
   xl: { w: 84, h: 118, corner: 10, pipFont: 18, suitFont: 17, centerFont: 48 },
@@ -27,6 +25,7 @@ function parseCard(cardId) {
 }
 
 export default function Card({ cardId, size = "md", dim = false, onClick }) {
+  const { colors } = useSuitColors();
   if (!cardId) {
     // Render an empty placeholder slot (used by TrickArea for missing players)
     const s = SIZES[size];
@@ -34,7 +33,7 @@ export default function Card({ cardId, size = "md", dim = false, onClick }) {
   }
 
   const { rank, suit } = parseCard(cardId);
-  const color = SUIT_COLORS[suit] || "#1a1a1a";
+  const color = colors[suit] || "#1a1a1a";
   const symbol = SUIT_SYMBOLS[suit] || "♠";
   const s = SIZES[size];
   const clickable = typeof onClick === "function";
