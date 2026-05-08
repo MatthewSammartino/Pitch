@@ -14,6 +14,8 @@ import LiveRoundPanel from "../components/game/LiveRoundPanel";
 import ChatPanel from "../components/game/ChatPanel";
 import PokerTable from "../components/game/PokerTable";
 import WinningBidBanner from "../components/game/WinningBidBanner";
+import { useSound } from "../context/SoundContext";
+import { playCardSound } from "../lib/sounds";
 
 
 export default function GameRoomPage() {
@@ -39,6 +41,12 @@ export default function GameRoomPage() {
   const isMobile = useIsMobile();
   const socketRef = useRef(null);
   const reactionCounterRef = useRef(0);
+  const { enabled: soundEnabled } = useSound();
+  // Track previous trick length so we can detect when a new card has been
+  // played and trigger the card-play sound effect.
+  const prevTrickLenRef = useRef(0);
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
 
   useEffect(() => {
     const socket = getSocket("/game");
@@ -59,6 +67,14 @@ export default function GameRoomPage() {
     socket.on("connect_error", onConnectError);
 
     socket.on("game:state", (state) => {
+      // Detect a card-play: currentTrick grew. (When the trick completes,
+      // the server clears it back to [] — that's a shrink, not a play.)
+      const newLen = state?.currentTrick?.length ?? 0;
+      if (newLen > prevTrickLenRef.current && soundEnabledRef.current) {
+        playCardSound();
+      }
+      prevTrickLenRef.current = newLen;
+
       setGame(state);
       // Clear my-turn if it's no longer my turn
       setMyTurn((prev) => {

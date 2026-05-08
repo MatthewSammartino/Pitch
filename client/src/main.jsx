@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { SocketProvider } from './context/SocketContext'
 import { SuitColorProvider } from './context/SuitColorContext'
+import { SoundProvider } from './context/SoundContext'
 import App from './App.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -12,7 +13,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <SocketProvider>
           <SuitColorProvider>
-            <App />
+            <SoundProvider>
+              <App />
+            </SoundProvider>
           </SuitColorProvider>
         </SocketProvider>
       </AuthProvider>

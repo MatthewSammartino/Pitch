@@ -4,6 +4,8 @@ import { api } from "../lib/api";
 import Navbar from "../components/layout/Navbar";
 import Card from "../components/game/Card";
 import { useSuitColors, SUIT_COLOR_MODES } from "../context/SuitColorContext";
+import { useSound } from "../context/SoundContext";
+import { playCardSound } from "../lib/sounds";
 
 const LEGACY_NAMES = ["matt", "seth", "mack", "arnav", "henry"];
 
@@ -68,6 +70,7 @@ const S = {
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
   const { mode: suitMode, setMode: setSuitMode } = useSuitColors();
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled } = useSound();
 
   // Display name edit
   const [name, setName] = useState(user?.display_name || "");
@@ -203,6 +206,63 @@ export default function ProfilePage() {
             <Card cardId="Qd" size="md" />
             <Card cardId="Jc" size="md" />
           </div>
+        </div>
+
+        {/* Sound */}
+        <div style={S.card}>
+          <div style={S.cardTitle}>Sound</div>
+          <p style={{ color: "#8aab8a", fontSize: 13, lineHeight: 1.5, margin: "0 0 16px" }}>
+            Card-play sound effect during games. Saved to this browser only.
+          </p>
+
+          <button
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "10px 14px", borderRadius: 10,
+              border: `1px solid ${soundEnabled ? "#f0c040" : "#2a4a2a"}`,
+              background: soundEnabled ? "rgba(240,192,64,.1)" : "rgba(255,255,255,.02)",
+              color: soundEnabled ? "#f0c040" : "#e8dfc8",
+              cursor: "pointer", textAlign: "left",
+              fontFamily: "Georgia,serif",
+              transition: "all .12s",
+              width: "100%",
+            }}
+          >
+            <div style={{
+              width: 32, height: 18, borderRadius: 9,
+              background: soundEnabled ? "rgba(240,192,64,.3)" : "rgba(255,255,255,.08)",
+              border: `1px solid ${soundEnabled ? "#f0c040" : "#2a5c2a"}`,
+              position: "relative", flexShrink: 0,
+            }}>
+              <div style={{
+                width: 12, height: 12, borderRadius: "50%",
+                background: soundEnabled ? "#f0c040" : "#3a5a3a",
+                position: "absolute", top: 2,
+                left: soundEnabled ? 16 : 2, transition: "left .15s",
+              }} />
+            </div>
+            <span style={{ flex: 1, fontSize: 14 }}>
+              Card-play sound effect — {soundEnabled ? "on" : "off"}
+            </span>
+          </button>
+
+          {soundEnabled && (
+            <button
+              onClick={() => playCardSound()}
+              style={{
+                marginTop: 10,
+                padding: "6px 14px", borderRadius: 14,
+                border: "1px solid #2a4a2a",
+                background: "transparent",
+                color: "#8aab8a",
+                cursor: "pointer", fontSize: 12,
+                fontFamily: "Georgia,serif",
+              }}
+            >
+              ▶ Test sound
+            </button>
+          )}
         </div>
 
         {/* Legacy account claim */}
