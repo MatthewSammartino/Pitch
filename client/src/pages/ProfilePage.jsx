@@ -9,7 +9,12 @@ import {
   playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound,
   playMadeBidSound, playSetOpponentSound, playWinGameSound,
   MADE_BID_VARIANTS, SET_OPPONENT_VARIANTS, WIN_GAME_VARIANTS,
+  stopAllPreviewSounds,
 } from "../lib/sounds";
+
+// Wrap a play function so it stops any currently playing preview before
+// starting the new one. Used for the Profile-page audition buttons.
+const preview = (fn) => () => { stopAllPreviewSounds(); fn(); };
 
 const LEGACY_NAMES = ["matt", "seth", "mack", "arnav", "henry"];
 
@@ -260,10 +265,10 @@ export default function ProfilePage() {
             <>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                 {[
-                  { label: "▶ Card play",  onClick: () => playCardSound() },
-                  { label: "▶ Your turn",  onClick: () => playYourTurnSound() },
-                  { label: "▶ Won trick",  onClick: () => playWinTrickSound() },
-                  { label: "▶ Won bid",    onClick: () => playWinBidSound() },
+                  { label: "▶ Card play",  onClick: preview(() => playCardSound()) },
+                  { label: "▶ Your turn",  onClick: preview(() => playYourTurnSound()) },
+                  { label: "▶ Won trick",  onClick: preview(() => playWinTrickSound()) },
+                  { label: "▶ Won bid",    onClick: preview(() => playWinBidSound()) },
                 ].map((b) => (
                   <button
                     key={b.label}
@@ -300,7 +305,7 @@ export default function ProfilePage() {
                         return (
                           <button
                             key={key}
-                            onClick={() => { row.set(key); row.play(key); }}
+                            onClick={() => { stopAllPreviewSounds(); row.set(key); row.play(key); }}
                             style={{
                               padding: "5px 12px", borderRadius: 12,
                               border: `1px solid ${active ? "#f0c040" : "#2a4a2a"}`,

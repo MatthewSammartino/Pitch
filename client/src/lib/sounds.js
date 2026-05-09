@@ -6,6 +6,25 @@
 // (the thud).
 
 let ctx = null;
+// Tracks the most recently started file-based Audio so we can pause it when
+// the user previews another sound (clicking a different button in Profile).
+let activeFileAudio = null;
+
+// Stop any currently playing sound — both file-based and synth. Used by the
+// Profile previews so clicking a new button silences the previous click.
+// File: pause and reset the active <Audio>. Synth: close the AudioContext
+// (kills all running oscillators); getCtx() will recreate one for the next
+// call. Safe to invoke when nothing is playing.
+export function stopAllPreviewSounds() {
+  if (activeFileAudio) {
+    try { activeFileAudio.pause(); activeFileAudio.currentTime = 0; } catch { /* noop */ }
+    activeFileAudio = null;
+  }
+  if (ctx) {
+    try { ctx.close(); } catch { /* noop */ }
+    ctx = null;
+  }
+}
 
 function getCtx() {
   if (typeof window === "undefined") return null;
@@ -685,6 +704,9 @@ function playFileSound(path, volume = 0.55) {
     // 404 errors so the rest of the UI keeps working.
     const p = a.play();
     if (p && typeof p.catch === "function") p.catch(() => {});
+    // Track so stopAllPreviewSounds() can interrupt this clip when the
+    // user previews another sound.
+    activeFileAudio = a;
   } catch { /* noop */ }
 }
 
