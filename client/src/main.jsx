@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext'
 import { SocketProvider } from './context/SocketContext'
 import { SuitColorProvider } from './context/SuitColorContext'
 import { SoundProvider } from './context/SoundContext'
+import { VideoProvider } from './context/VideoContext'
 import App from './App.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -14,7 +15,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <SocketProvider>
           <SuitColorProvider>
             <SoundProvider>
-              <App />
+              <VideoProvider>
+                <App />
+              </VideoProvider>
             </SoundProvider>
           </SuitColorProvider>
         </SocketProvider>

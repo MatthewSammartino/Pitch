@@ -15,10 +15,13 @@ import ChatPanel from "../components/game/ChatPanel";
 import PokerTable from "../components/game/PokerTable";
 import WinningBidBanner from "../components/game/WinningBidBanner";
 import { useSound } from "../context/SoundContext";
+import { useVideo } from "../context/VideoContext";
 import {
   playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound,
   playMadeBidSound, playSetOpponentSound, playWinGameSound,
 } from "../lib/sounds";
+import { getVideoSrc } from "../lib/videos";
+import CelebrationOverlay from "../components/game/CelebrationOverlay";
 
 
 export default function GameRoomPage() {
@@ -50,6 +53,26 @@ export default function GameRoomPage() {
   } = useSound();
   const soundPrefsRef = useRef({ madeBidVariant, setOpponentVariant, winGameVariant });
   soundPrefsRef.current = { madeBidVariant, setOpponentVariant, winGameVariant };
+
+  const {
+    enabled: videoEnabled,
+    setOpponentVariant: videoSetOpponentVariant,
+    winGameVariant:     videoWinGameVariant,
+    tookJackVariant:    videoTookJackVariant,
+  } = useVideo();
+  const videoPrefsRef = useRef({
+    enabled: videoEnabled,
+    setOpponent: videoSetOpponentVariant,
+    winGame:     videoWinGameVariant,
+    tookJack:    videoTookJackVariant,
+  });
+  videoPrefsRef.current = {
+    enabled: videoEnabled,
+    setOpponent: videoSetOpponentVariant,
+    winGame:     videoWinGameVariant,
+    tookJack:    videoTookJackVariant,
+  };
+  const [activeVideo, setActiveVideo] = useState(null);
   // Latest `game` state, accessible inside socket handlers without restating
   // the effect on every game update.
   const gameRef = useRef(null);
@@ -183,7 +206,6 @@ export default function GameRoomPage() {
       setGame((prev) => prev ? { ...prev, currentTrick: [], completedTrick: null } : prev);
 
       // ── Made-bid / set-opponent celebration ──────────────────────
-      if (!soundEnabledRef.current) return;
       const g = gameRef.current;
       const u = userRef.current;
       if (!g?.seats || !u) return;
@@ -191,28 +213,58 @@ export default function GameRoomPage() {
       const me     = g.seats.find((s) => s.userId === u.id);
       if (!bidder || !me) return;
       const sameTeam = bidder.team === me.team;
-      const prefs = soundPrefsRef.current;
-      // Slight delay so the round-summary modal can animate in first.
-      if (sameTeam && summary.bidMade && prefs.madeBidVariant !== "off") {
-        setTimeout(() => playMadeBidSound(prefs.madeBidVariant), 250);
-      } else if (!sameTeam && !summary.bidMade && prefs.setOpponentVariant !== "off") {
-        setTimeout(() => playSetOpponentSound(prefs.setOpponentVariant), 250);
+
+      // Sounds (independent of videos)
+      if (soundEnabledRef.current) {
+        const prefs = soundPrefsRef.current;
+        // Slight delay so the round-summary modal can animate in first.
+        if (sameTeam && summary.bidMade && prefs.madeBidVariant !== "off") {
+          setTimeout(() => playMadeBidSound(prefs.madeBidVariant), 250);
+        } else if (!sameTeam && !summary.bidMade && prefs.setOpponentVariant !== "off") {
+          setTimeout(() => playSetOpponentSound(prefs.setOpponentVariant), 250);
+        }
       }
+
+      // Video overlay — priority: setOpponent > tookJack > tookOffJack.
+      // Won-game video is fired in the game:game_over handler instead.
+      const vp = videoPrefsRef.current;
+      if (!vp.enabled) return;
+      let src = null;
+      if (!sameTeam && !summary.bidMade) {
+        src = getVideoSrc("setOpponent", vp.setOpponent);
+      }
+      if (!src && summary.breakdown?.jack?.team === me.team) {
+        src = getVideoSrc("tookJack", vp.tookJack);
+      }
+      if (!src && summary.breakdown?.offJack?.team === me.team) {
+        src = getVideoSrc("tookJack", vp.tookJack);
+      }
+      if (src) setActiveVideo(src);
     });
 
     socket.on("game:game_over", (result) => {
       setGameOver(result);
       setRoundSummary(null);
-      // ── Win-game celebration ─────────────────────────────────────
-      if (!soundEnabledRef.current) return;
       const g = gameRef.current;
       const u = userRef.current;
       if (!g?.seats || !u) return;
       const me = g.seats.find((s) => s.userId === u.id);
       if (!me) return;
-      const prefs = soundPrefsRef.current;
-      if (me.team === result.winner && prefs.winGameVariant !== "off") {
-        setTimeout(() => playWinGameSound(prefs.winGameVariant), 350);
+      const iWon = me.team === result.winner;
+
+      // Sound (independent of video)
+      if (soundEnabledRef.current) {
+        const prefs = soundPrefsRef.current;
+        if (iWon && prefs.winGameVariant !== "off") {
+          setTimeout(() => playWinGameSound(prefs.winGameVariant), 350);
+        }
+      }
+
+      // Video overlay
+      const vp = videoPrefsRef.current;
+      if (vp.enabled && iWon) {
+        const src = getVideoSrc("winGame", vp.winGame);
+        if (src) setActiveVideo(src);
       }
     });
 
@@ -583,6 +635,10 @@ export default function GameRoomPage() {
           teamNames={gameOver.teamNames ?? game?.teamNames}
         />
       )}
+
+      {/* Bowling-style celebration overlay — covers the modals at zIndex 500
+          while playing, then auto-dismisses revealing whatever's underneath. */}
+      <CelebrationOverlay src={activeVideo} onDone={() => setActiveVideo(null)} />
     </div>
   );
 }

@@ -5,12 +5,18 @@ import Navbar from "../components/layout/Navbar";
 import Card from "../components/game/Card";
 import { useSuitColors, SUIT_COLOR_MODES } from "../context/SuitColorContext";
 import { useSound } from "../context/SoundContext";
+import { useVideo } from "../context/VideoContext";
 import {
   playCardSound, playYourTurnSound, playWinBidSound, playWinTrickSound,
   playMadeBidSound, playSetOpponentSound, playWinGameSound,
   MADE_BID_VARIANTS, SET_OPPONENT_VARIANTS, WIN_GAME_VARIANTS,
   stopAllPreviewSounds,
 } from "../lib/sounds";
+import {
+  SET_OPPONENT_VIDEOS, WIN_GAME_VIDEOS, TOOK_JACK_VIDEOS,
+  getVideoSrc,
+} from "../lib/videos";
+import CelebrationOverlay from "../components/game/CelebrationOverlay";
 
 // Wrap a play function so it stops any currently playing preview before
 // starting the new one. Used for the Profile-page audition buttons.
@@ -85,6 +91,14 @@ export default function ProfilePage() {
     setOpponentVariant, setSetOpponentVariant,
     winGameVariant, setWinGameVariant,
   } = useSound();
+  const {
+    enabled: videoEnabled, setEnabled: setVideoEnabled,
+    setOpponentVariant:    videoSetOpponentVariant,    setSetOpponentVariant: setVideoSetOpponent,
+    winGameVariant:        videoWinGameVariant,        setWinGameVariant:     setVideoWinGame,
+    tookJackVariant:       videoTookJackVariant,       setTookJackVariant:    setVideoTookJack,
+  } = useVideo();
+  // Local preview state for the video overlay shown in this page only.
+  const [previewVideo, setPreviewVideo] = useState(null);
 
   // Display name edit
   const [name, setName] = useState(user?.display_name || "");
@@ -339,6 +353,109 @@ export default function ProfilePage() {
             </>
           )}
         </div>
+
+        {/* Celebration videos */}
+        <div style={S.card}>
+          <div style={S.cardTitle}>Celebration Videos</div>
+          <p style={{ color: "#8aab8a", fontSize: 13, lineHeight: 1.5, margin: "0 0 16px" }}>
+            Bowling-alley-style overlay clips that play on big moments.
+            Files live in <code>client/public/videos/</code> — see the README
+            there for what to drop in. Saved to this browser only.
+          </p>
+
+          {/* Master toggle */}
+          <button
+            onClick={() => setVideoEnabled(!videoEnabled)}
+            style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "10px 14px", borderRadius: 10,
+              border: `1px solid ${videoEnabled ? "#f0c040" : "#2a4a2a"}`,
+              background: videoEnabled ? "rgba(240,192,64,.1)" : "rgba(255,255,255,.02)",
+              color: videoEnabled ? "#f0c040" : "#e8dfc8",
+              cursor: "pointer", textAlign: "left",
+              fontFamily: "Georgia,serif",
+              transition: "all .12s",
+              width: "100%",
+            }}
+          >
+            <div style={{
+              width: 32, height: 18, borderRadius: 9,
+              background: videoEnabled ? "rgba(240,192,64,.3)" : "rgba(255,255,255,.08)",
+              border: `1px solid ${videoEnabled ? "#f0c040" : "#2a5c2a"}`,
+              position: "relative", flexShrink: 0,
+            }}>
+              <div style={{
+                width: 12, height: 12, borderRadius: "50%",
+                background: videoEnabled ? "#f0c040" : "#3a5a3a",
+                position: "absolute", top: 2,
+                left: videoEnabled ? 16 : 2, transition: "left .15s",
+              }} />
+            </div>
+            <span style={{ flex: 1, fontSize: 14 }}>
+              Show celebration videos — {videoEnabled ? "on" : "off"}
+            </span>
+          </button>
+
+          {videoEnabled && (
+            <div style={{ marginTop: 22, paddingTop: 16, borderTop: "1px solid #1a3a1a" }}>
+              <div style={{ color: "#5a7a5a", fontSize: 11, fontFamily: "monospace", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
+                Per-event videos
+              </div>
+              {[
+                { label: "Won the game",  event: "winGame",     variants: WIN_GAME_VIDEOS,     cur: videoWinGameVariant,     set: setVideoWinGame    },
+                { label: "Set opponent",  event: "setOpponent", variants: SET_OPPONENT_VIDEOS, cur: videoSetOpponentVariant, set: setVideoSetOpponent },
+                { label: "Took jack",     event: "tookJack",    variants: TOOK_JACK_VIDEOS,    cur: videoTookJackVariant,    set: setVideoTookJack   },
+              ].map((row) => (
+                <div key={row.label} style={{ marginBottom: 14 }}>
+                  <div style={{ color: "#e8dfc8", fontSize: 13, marginBottom: 6 }}>{row.label}</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    {Object.entries(row.variants).map(([key, info]) => {
+                      const active = row.cur === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => {
+                            row.set(key);
+                            setPreviewVideo(null); // reset to retrigger overlay
+                            // Tiny delay so the overlay sees the src change
+                            setTimeout(() => setPreviewVideo(getVideoSrc(row.event, key)), 30);
+                          }}
+                          style={{
+                            padding: "5px 12px", borderRadius: 12,
+                            border: `1px solid ${active ? "#f0c040" : "#2a4a2a"}`,
+                            background: active ? "rgba(240,192,64,.12)" : "transparent",
+                            color: active ? "#f0c040" : "#8aab8a",
+                            cursor: "pointer", fontSize: 12,
+                            fontFamily: "Georgia,serif",
+                          }}
+                        >
+                          {active ? "✓ " : ""}{info.label}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => row.set("off")}
+                      style={{
+                        padding: "5px 12px", borderRadius: 12,
+                        border: `1px solid ${row.cur === "off" ? "#5a2020" : "#2a4a2a"}`,
+                        background: row.cur === "off" ? "rgba(90,32,32,.18)" : "transparent",
+                        color: row.cur === "off" ? "#c89a9a" : "#5a7a5a",
+                        cursor: "pointer", fontSize: 12,
+                        fontFamily: "Georgia,serif",
+                      }}
+                    >
+                      {row.cur === "off" ? "✓ " : ""}Off
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Local-only overlay so previews on this page don't fight the
+            in-game overlay. */}
+        <CelebrationOverlay src={previewVideo} onDone={() => setPreviewVideo(null)} />
 
         {/* Legacy account claim */}
         <div style={S.card}>
