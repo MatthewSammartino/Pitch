@@ -711,7 +711,8 @@ export const SET_OPPONENT_VARIANTS = {
   scratch:     { label: "Scratch",      play: _setOpponent_scratch },
   airhornReal: { label: "Air horn (file)",     file: "/sounds/set-opponent/airhorn-real.mp3" },
   trombone:    { label: "Sad trombone (file)", file: "/sounds/set-opponent/sad-trombone.mp3" },
-  aww:         { label: "Crowd aww (file)",    file: "/sounds/set-opponent/crowd-aww.mp3"    },
+  aww:         { label: "Aww (file)",          file: "/sounds/set-opponent/crowd-aww.mp3"     },
+  awwMan:      { label: "Aww man (file)",      file: "/sounds/set-opponent/crowd-aww-man.mp3" },
 };
 export const WIN_GAME_VARIANTS = {
   fanfare:        { label: "Fanfare",     play: _winGame_fanfare   },
@@ -723,6 +724,7 @@ export const WIN_GAME_VARIANTS = {
   crowdCheer:     { label: "Crowd cheer (file)",      file: "/sounds/won-game/crowd-cheer.mp3"     },
   victoryFanfare: { label: "Victory fanfare (file)",  file: "/sounds/won-game/victory-fanfare.mp3" },
   champion:       { label: "Champion (file)",         file: "/sounds/won-game/champion.mp3"        },
+  chickens:       { label: "Chickens (file)",         file: "/sounds/won-game/chickens.mp3"        },
 };
 
 function dispatch(variants, key) {
